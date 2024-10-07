@@ -4,6 +4,7 @@ def get_prestations():
             "consultation": 1
         },
         "droit_des_affaires": {
+            "analyse_juridique_et_règlementaire": 5,
             "rédaction_contrats_commerciaux": 8,
             "conseil_juridique_entreprise": 4,
             "contentieux_commercial": 25,
