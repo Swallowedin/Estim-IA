@@ -5,6 +5,7 @@ def get_tarifs():
         "facteur_urgence": 1.5,  # Facteur multiplicateur pour les cas urgents
         "forfaits": {
             "consultation_initiale": 100,
+            "consultation_juridique_et_reglementaire": 800,
             "création_entreprise": 3000,
             "rédaction_contrat_simple": 800,
             "rédaction_contrat_complexe": 2000,
