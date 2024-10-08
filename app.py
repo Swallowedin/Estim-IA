@@ -86,11 +86,11 @@ def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo", num_iteration
 
 def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, str, float, bool]:
     options = []
-    for domaine, prestations_domaine in prestations.items():
+    for domaine, prestations_domaine in tarifs["forfaits"].items():
         domain_info = f"{domaine}:"
         prestation_info = []
-        for prestation, description in prestations_domaine.items():
-            label = tarifs.get("forfaits", {}).get(domaine, {}).get(prestation, {}).get("label", prestation)
+        for prestation, details in prestations_domaine.items():
+            label = details.get("label", prestation)
             prestation_info.append(f"{prestation} ({label})")
         domain_info += ", ".join(prestation_info)
         options.append(domain_info)
@@ -132,8 +132,8 @@ Répondez au format JSON strict suivant :
     service = max(set(r['prestation'] for r in results), key=lambda x: [r['prestation'] for r in results].count(x))
     confidence = sum(r['indice_confiance'] for r in results) / len(results)
     
-    # Vérification de la pertinence basée sur les données des fichiers .py
-    is_relevant = is_legal and domain in prestations and service in prestations[domain]
+    # Vérification de la pertinence basée sur les données de tarifs_prestations.py
+    is_relevant = is_legal and domain in tarifs["forfaits"] and service in tarifs["forfaits"][domain]
     
     # Si le domaine ou le service n'est pas trouvé dans les données, on les met à "Non déterminé"
     if not is_relevant:
@@ -197,8 +197,8 @@ def main():
                 domain, service, confidence, is_relevant = analyze_question(question, client_type, urgency)
                 
                 # Récupérer les labels
-                domain_label = tarifs.get("forfaits", {}).get(domain, {}).get("label", domain)
-                service_label = tarifs.get("forfaits", {}).get(domain, {}).get(service, {}).get("label", service)
+                domain_label = domain
+                service_label = tarifs["forfaits"].get(domain, {}).get(service, {}).get("label", service)
                 
                 estimation = calculate_estimate(domain, service, urgency) if is_relevant else None
 
