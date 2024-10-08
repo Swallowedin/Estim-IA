@@ -127,23 +127,25 @@ Répondez au format JSON strict suivant :
     
     return domain, service, confidence, is_relevant
 
-def calculate_estimate(domaine: str, prestation: str, urgency: str) -> Tuple[int, int]:
+def calculate_estimate(domaine: str, prestation: str, urgency: str) -> int:
     try:
-        heures = prestations.get(domaine, {}).get(prestation, 10)
-        tarif_horaire = tarifs.get("tarif_horaire_standard", 0)
-        estimation = heures * tarif_horaire
+        # Chercher d'abord dans les forfaits
+        forfait = tarifs.get("forfaits", {}).get(domaine, {}).get(prestation, {}).get("tarif")
+        
+        # Si pas de forfait, calculer basé sur les heures
+        if forfait is None:
+            heures = prestations.get(domaine, {}).get(prestation, 10)
+            tarif_horaire = tarifs.get("tarif_horaire_standard", 250)
+            estimation = heures * tarif_horaire
+        else:
+            estimation = forfait
 
+        # Appliquer le facteur d'urgence si nécessaire
         if urgency == "Urgent":
             facteur_urgence = tarifs.get("facteur_urgence", 1.5)
             estimation *= facteur_urgence
 
-        forfait = tarifs.get("forfaits", {}).get(prestation)
-        if forfait and forfait < estimation:
-            estimation = forfait
-
-        estimation_basse, estimation_haute = round(estimation * 0.8), round(estimation * 1.2)
-
-        return estimation_basse, estimation_haute
+        return round(estimation)
     except Exception as e:
         logger.exception(f"Erreur dans calculate_estimate: {str(e)}")
         raise
@@ -178,7 +180,21 @@ def main():
                 
                 # Effectuer l'analyse et le calcul
                 domaine, prestation, confidence, is_relevant = analyze_question(question, client_type, urgency)
-                estimation_basse, estimation_haute = calculate_estimate(domaine, prestation, urgency)
+                estimation = calculate_estimate(domaine, prestation, urgency)
+
+# Et modifier l'affichage de l'estimation :
+with st.container():
+    st.markdown(
+        f"""
+        <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; text-align: center;">
+            <h3 style="color: #1f618d;">Estimation</h3>
+            <p style="font-size: 24px; font-weight: bold; color: #2c3e50;">
+                À partir de {estimation} €HT
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
                 # Une fois que tout est prêt, supprimer l'animation de chargement
                 loading_placeholder.empty()
