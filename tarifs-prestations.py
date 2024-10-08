@@ -1,6 +1,6 @@
 def get_tarifs():
     return {
-        "forfaits": {
+        
             "droit_civil_contrats": {
                 "redaction_conditions_generales": {
                     "label": "Rédaction des conditions générales",
