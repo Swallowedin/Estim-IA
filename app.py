@@ -31,29 +31,73 @@ def load_py_module(file_path: str, module_name: str):
         return None
 
 tarifs_module = load_py_module('./tarifs-prestations.py', 'tarifs_prestations')
+instructions_module = load_py_module('./chatbot-instructions.py', 'chatbot_instructions')
 
 # Initialisation des variables globales
 tarifs = tarifs_module.get_tarifs() if tarifs_module else {}
+instructions = instructions_module.get_chatbot_instructions() if instructions_module else ""
 
-def print_tarifs_structure():
-    print("Structure de tarifs:")
-    for key, value in tarifs.items():
-        if isinstance(value, dict):
-            print(f"{key}:")
-            for sub_key, sub_value in value.items():
-                print(f"  {sub_key}: {sub_value}")
-        else:
-            print(f"{key}: {value}")
+def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo", num_iterations: int = 3) -> list:
+    try:
+        responses = []
+        for _ in range(num_iterations):
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": instructions},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                max_tokens=4000
+            )
+            content = response.choices[0].message.content.strip()
+            responses.append(content)
+        return responses
+    except Exception as e:
+        logger.error(f"Erreur lors de l'appel à l'API OpenAI: {e}")
+        raise
 
 def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, float, bool]:
-    forfaits = tarifs.get("forfaits", {})
-    question_lower = question.lower()
+    prestations = [prestation for prestation, tarif in tarifs.items() if isinstance(tarif, (int, float))]
+    prompt = f"""Analysez la question suivante et déterminez si elle est susceptible de concerner une thématique juridique. Si c'est fort probable, identifiez la prestation la plus pertinente.
+
+Question : {question}
+Type de client : {client_type}
+Degré d'urgence : {urgency}
+
+Options de prestations :
+{', '.join(prestations)}
+"""
+
+    responses = get_openai_response(prompt)
     
-    for prestation, tarif in forfaits.items():
-        if prestation.lower().replace("_", " ") in question_lower:
-            return prestation, 1.0, True
+    results = []
+    for response in responses:
+        try:
+            lines = response.strip().split('\n')
+            if len(lines) >= 2:
+                results.append(lines[1])  # On prend la deuxième ligne qui devrait être la prestation
+        except Exception as e:
+            logger.error(f"Erreur dans l'analyse de la réponse: {e}")
     
-    return "Non déterminée", 0.0, False
+    if not results:
+        return "", 0.0, False
+
+    prestation = max(set(results), key=results.count)
+    confidence = results.count(prestation) / len(results)
+    is_relevant = prestation in tarifs and isinstance(tarifs[prestation], (int, float))
+    
+    return prestation, confidence, is_relevant
+
+def calculate_estimate(prestation: str, urgency: str) -> int:
+    try:
+        estimation = tarifs.get(prestation, 0)
+        if urgency == "Urgent" and "facteur_urgence" in tarifs:
+            estimation *= tarifs["facteur_urgence"]
+        return round(estimation)
+    except Exception as e:
+        logger.error(f"Erreur dans calculate_estimate: {str(e)}")
+        return 0
 
 def apply_custom_css():
     st.markdown("""
@@ -67,7 +111,28 @@ def apply_custom_css():
             .stApp {
                 margin-top: -80px;
             }
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            .loading-icon {
+                animation: spin 1s linear infinite;
+                display: inline-block;
+                margin-right: 10px;
+            }
         </style>
+    """, unsafe_allow_html=True)
+
+def display_loading_animation():
+    return st.markdown("""
+    <div style="display: flex; align-items: center; justify-content: center; flex-direction: column;">
+        <svg class="loading-icon" width="50" height="50" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12,1A11,11,0,1,0,23,12,11,11,0,0,0,12,1Zm0,19a8,8,1,1,1,8-8A8,8,0,0,1,12,20Z" opacity=".25"/>
+            <path d="M12,4a8,8,0,0,1,7.89,6.7A1.53,1.53,0,0,0,21.38,12h0a1.5,1.5,0,0,0,1.48-1.75,11,11,0,0,0-21.72,0A1.5,1.5,0,0,0,2.62,12h0a1.53,1.53,0,0,0,1.49-1.3A8,8,0,0,1,12,4Z"/>
+        </svg>
+        <p style="margin-top: 10px; font-weight: bold;">Estim'IA analyse votre cas juridique...</p>
+        <p>Veuillez patienter quelques secondes !</p>
+    </div>
     """, unsafe_allow_html=True)
 
 def main():
@@ -82,39 +147,45 @@ def main():
     if st.button("Obtenir une estimation grâce à l'intelligence artificielle"):
         if question:
             try:
-                # Afficher la structure de tarifs pour le débogage
-                print_tarifs_structure()
+                loading_placeholder = st.empty()
+                with loading_placeholder:
+                    loading_animation = display_loading_animation()
                 
                 # Effectuer l'analyse et le calcul
-                service, confidence, is_relevant = analyze_question(question, client_type, urgency)
-                
-                estimation = tarifs["forfaits"].get(service) if is_relevant else None
-                if estimation and urgency == "Urgent":
-                    estimation *= tarifs["facteur_urgence"]
+                prestation, confidence, is_relevant = analyze_question(question, client_type, urgency)
+                estimation = calculate_estimate(prestation, urgency)
+
+                # Une fois que tout est prêt, supprimer l'animation de chargement
+                loading_placeholder.empty()
 
                 # Afficher les résultats
                 st.success("Analyse terminée. Voici les résultats :")
                 
-                if service == "Non déterminée":
-                    st.warning("⚠️ Nous n'avons pas pu identifier précisément votre besoin. Voici la liste des prestations disponibles :")
-                    for prestation in tarifs["forfaits"].keys():
-                        st.write(f"- {prestation.replace('_', ' ').capitalize()}")
-                else:
-                    st.subheader("Résumé de l'estimation")
-                    st.write(f"**Prestation identifiée :** {service.replace('_', ' ').capitalize()}")
+                st.subheader("Indice de confiance de l'analyse")
+                st.progress(confidence)
+                st.write(f"Confiance : {confidence:.2%}")
 
-                    if estimation:
-                        st.markdown(
-                            f"""
-                            <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; text-align: center;">
-                                <h3 style="color: #1f618d;">Estimation</h3>
-                                <p style="font-size: 24px; font-weight: bold; color: #2c3e50;">
-                                    À partir de {round(estimation)} €HT
-                                </p>
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
+                if confidence < 0.5:
+                    st.warning("⚠️ Attention : Notre IA a eu des difficultés à analyser votre question avec certitude. L'estimation suivante peut manquer de précision.")
+                elif not is_relevant:
+                    st.info("Nous ne sommes pas sûr qu'il s'agisse d'une question d'ordre juridique. Nous allons tout de même tenter de vous fournir une estimation indicative.")
+
+                st.subheader("Résumé de l'estimation")
+                st.write(f"**Prestation :** {prestation if prestation else 'Non déterminée'}")
+
+                # Utilisation d'un conteneur stylisé pour mettre en valeur l'estimation
+                with st.container():
+                    st.markdown(
+                        f"""
+                        <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; text-align: center;">
+                            <h3 style="color: #1f618d;">Estimation</h3>
+                            <p style="font-size: 24px; font-weight: bold; color: #2c3e50;">
+                                À partir de {estimation} €HT
+                            </p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
 
                 st.markdown("---")
                 st.markdown("### 💡 Alternative Recommandée")
