@@ -95,7 +95,7 @@ def get_tarifs():
                 "redaction_demande_despecialisation": {
                     "label": "Rédaction de demande de déspécialisation",
                     "tarif": 400,
-                    "definition": "Élaboration d'une demande pour modifier l'activité autorisée dans un bail commercial."
+                    "definition": "Élaboration d'une demande pour modifier l'activité autorisée ou la destination dans un bail commercial."
                 },
                 "procedure_resiliation_bail_commercial": {
                     "label": "Procédure de résiliation de bail commercial",
@@ -219,22 +219,22 @@ def get_tarifs():
                 "procedure_refere_provision": {
                     "label": "Procédure en référé provision",
                     "tarif": 1000,
-                    "definition": "Procédure d'urgence pour obtenir le paiement provisoire d'une créance non sérieusement contestable."
+                    "definition": "Assistance, accompagnement et représentation en justice afin d'entamer une procédure d'urgence pour obtenir le paiement provisoire d'une créance non sérieusement contestable  par un débiteur récalcitrant."
                 },
                 "procedure_refere_expertise": {
                     "label": "Procédure en référé expertise",
                     "tarif": 800,
-                    "definition": "Procédure d'urgence pour obtenir la désignation d'un expert par le tribunal."
+                    "definition": "Assistance, accompagnement et représentation en justice afin d'entamer une procédure d'urgence pour obtenir la désignation d'un expert par le tribunal afin de déclencher une expertise qui permettra de déterminer les responsabilité de chacun dans le cadre d'un conflit."
                 },
                 "suivi_expertise_judiciaire": {
                     "label": "Suivi d'expertise judiciaire",
                     "tarif": 1000,
-                    "definition": "Accompagnement et représentation du client durant une expertise ordonnée par le tribunal."
+                    "definition": "Accompagnement et représentation du client durant la pahse d'expertise décidée par un tribunal."
                 },
                 "procedure_appel": {
                     "label": "Procédure d'appel",
                     "tarif": 2000,
-                    "definition": "Représentation du client devant la cour d'appel pour contester un jugement."
+                    "definition": "Représentation du client devant la cour d'appel pour contester un jugement de première instance."
                 },
                 "demande_ouverture_procedure_redressement_ou_liquidation": {
                     "label": "Demande d'ouverture de procédure de redressement ou liquidation",
@@ -253,32 +253,32 @@ def get_tarifs():
             "litige_droit_construction": {
                 "label": "Litige en droit de la construction",
                 "tarif": 500,
-                "definition": "Gestion juridique des conflits liés aux travaux de construction, rénovation ou aménagement."
+                "definition": "Gestion juridique des conflits liés aux travaux de construction ou obtenir la réparartion de dommages sur un bien immobilier, telle qu'une maison ou un appartement."
             },
             "redaction_contrat_construction": {
                 "label": "Rédaction de contrat de construction",
                 "tarif": 2500,
-                "definition": "Élaboration d'un contrat détaillant les termes et conditions d'un projet de construction."
+                "definition": "Élaboration d'un contrat détaillant les termes et conditions d'un projet de construction d'un bien immobilier."
             },
             "litige_malfacons_simple": {
                 "label": "Litige pour malfaçons simple",
                 "tarif": 5000,
-                "definition": "Représentation juridique dans un cas de défauts de construction d'une complexité limitée."
+                "definition": "Représentation en justice dans un cas de défauts de construction ou de dommages sur un bien immobilier d'une complexité limitée."
             },
             "litige_malfacons_complexe": {
                 "label": "Litige pour malfaçons complexe",
                 "tarif": 10000,
-                "definition": "Gestion d'un contentieux impliquant des défauts de construction multiples ou techniques."
+                "definition": "Représentation en justice dans le cadre d'un contentieux impliquant des défauts de construction, ou des dommages, multiples ou techniques."
             },
             "assistance_expertise_judiciaire": {
                 "label": "Assistance lors d'une expertise judiciaire",
                 "tarif": 2000,
-                "definition": "Accompagnement du client lors d'une expertise ordonnée par un tribunal en matière de construction."
+                "definition": "Accompagnement du client lors de la phase d'expertise décidée par un tribunal en matière de litige portant sur le domaine de la construction et de biens immobiliers."
             },
             "procedure_refere_construction": {
                 "label": "Procédure en référé construction",
                 "tarif": 3750,
-                "definition": "Représentation dans une procédure d'urgence liée à un litige de construction."
+                "definition": "Assistance, accompagnement et représentation en justice afin d'entamer une procédure d'urgence pour obtenir la désignation d'urgence d'un expert afin de déterminer les responsabilités de chacun dans le cadre d'un litige de construction."
             }
         },
         "mediation": {
