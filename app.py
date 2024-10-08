@@ -183,9 +183,8 @@ def main():
     if st.button("Obtenir une estimation grâce à l'intelligence artificielle"):
         if question:
             try:
-                loading_placeholder = st.empty()
-                with loading_placeholder:
-                    loading_animation = display_loading_animation()
+                # Afficher la structure de tarifs pour le débogage
+                print_tarifs_structure()
                 
                 # Effectuer l'analyse et le calcul
                 service, confidence, is_relevant = analyze_question(question, client_type, urgency)
@@ -194,35 +193,29 @@ def main():
                 if estimation and urgency == "Urgent":
                     estimation *= tarifs["facteur_urgence"]
 
-                # Une fois que tout est prêt, supprimer l'animation de chargement
-                loading_placeholder.empty()
-
                 # Afficher les résultats
                 st.success("Analyse terminée. Voici les résultats :")
                 
-                st.subheader("Indice de confiance de l'analyse")
-                st.progress(confidence)
-                st.write(f"Confiance : {confidence:.2%}")
-
                 if service == "Non déterminée":
-                    st.warning("⚠️ Nous n'avons pas pu identifier précisément votre besoin. Veuillez fournir plus de détails ou contacter directement notre cabinet pour une évaluation personnalisée.")
+                    st.warning("⚠️ Nous n'avons pas pu identifier précisément votre besoin. Voici la liste des prestations disponibles :")
+                    for prestation in tarifs["forfaits"].keys():
+                        st.write(f"- {prestation.replace('_', ' ').capitalize()}")
                 else:
                     st.subheader("Résumé de l'estimation")
                     st.write(f"**Prestation identifiée :** {service.replace('_', ' ').capitalize()}")
 
                     if estimation:
-                        with st.container():
-                            st.markdown(
-                                f"""
-                                <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; text-align: center;">
-                                    <h3 style="color: #1f618d;">Estimation</h3>
-                                    <p style="font-size: 24px; font-weight: bold; color: #2c3e50;">
-                                        À partir de {round(estimation)} €HT
-                                    </p>
-                                </div>
-                                """,
-                                unsafe_allow_html=True
-                            )
+                        st.markdown(
+                            f"""
+                            <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; text-align: center;">
+                                <h3 style="color: #1f618d;">Estimation</h3>
+                                <p style="font-size: 24px; font-weight: bold; color: #2c3e50;">
+                                    À partir de {round(estimation)} €HT
+                                </p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
 
                 st.markdown("---")
                 st.markdown("### 💡 Alternative Recommandée")
