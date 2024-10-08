@@ -57,16 +57,20 @@ def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo", num_iteration
         logger.error(f"Erreur lors de l'appel à l'API OpenAI: {e}")
         raise
 
-def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, float, bool]:
-    prestations = [prestation for prestation, tarif in tarifs.items() if isinstance(tarif, (int, float))]
-    prompt = f"""Analysez la question suivante et déterminez si elle est susceptible de concerner une thématique juridique. Si c'est fort probable, identifiez la prestation la plus pertinente.
+def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, str, str, float, bool]:
+    options = []
+    for domaine, prestations in tarifs['forfaits'].items():
+        for prestation, details in prestations.items():
+            options.append(f"{domaine}: {details['label']}")
+
+    prompt = f"""Analysez la question suivante et déterminez si elle est susceptible de concerner une thématique juridique. Si c'est fort probable, identifiez le domaine juridique et la prestation la plus pertinente.
 
 Question : {question}
 Type de client : {client_type}
 Degré d'urgence : {urgency}
 
-Options de prestations :
-{', '.join(prestations)}
+Options de domaines et prestations :
+{' | '.join(options)}
 """
 
     responses = get_openai_response(prompt)
@@ -76,32 +80,38 @@ Options de prestations :
         try:
             lines = response.strip().split('\n')
             if len(lines) >= 2:
-                results.append(lines[1])  # On prend la deuxième ligne qui devrait être la prestation
+                domaine = lines[0]
+                prestation = lines[1]
+                results.append((domaine, prestation))
         except Exception as e:
             logger.error(f"Erreur dans l'analyse de la réponse: {e}")
     
     if not results:
-        return "", 0.0, False
+        return "", "", "", 0.0, False
 
-    prestation = max(set(results), key=results.count)
-    confidence = results.count(prestation) / len(results)
-    is_relevant = prestation in tarifs and isinstance(tarifs[prestation], (int, float))
+    # Analyse simplifiée des résultats
+    domaine, prestation = max(set(results), key=results.count)
+    confidence = results.count((domaine, prestation)) / len(results)
     
-    return prestation, confidence, is_relevant
+    # Vérifier si le domaine et la prestation existent dans tarifs
+    is_relevant = domaine in tarifs['forfaits'] and any(p for p in tarifs['forfaits'][domaine] if tarifs['forfaits'][domaine][p]['label'] == prestation)
+    
+    if is_relevant:
+        prestation_key = next(p for p in tarifs['forfaits'][domaine] if tarifs['forfaits'][domaine][p]['label'] == prestation)
+        prestation_label = tarifs['forfaits'][domaine][prestation_key]['label']
+    else:
+        domaine, prestation_key, prestation_label = "", "", "Non déterminée"
+    
+    return domaine, prestation_key, prestation_label, confidence, is_relevant
 
-def calculate_estimate(prestation: str, urgency: str) -> int:
+def calculate_estimate(domaine: str, prestation: str, urgency: str) -> int:
     try:
-        estimation = tarifs.get(prestation)
-        if estimation is None:
-            logger.error(f"Tarif non trouvé pour la prestation : {prestation}")
-            return 0
-        
-        if urgency == "Urgent" and "facteur_urgence" in tarifs:
+        estimation = tarifs['forfaits'][domaine][prestation]['tarif']
+        if urgency == "Urgent":
             estimation *= tarifs["facteur_urgence"]
-        
         return round(estimation)
-    except Exception as e:
-        logger.error(f"Erreur dans calculate_estimate: {str(e)}")
+    except KeyError:
+        logger.error(f"Tarif non trouvé pour : {domaine} - {prestation}")
         return 0
 
 def apply_custom_css():
@@ -157,8 +167,8 @@ def main():
                     loading_animation = display_loading_animation()
                 
                 # Effectuer l'analyse et le calcul
-                prestation, confidence, is_relevant = analyze_question(question, client_type, urgency)
-                estimation = calculate_estimate(prestation, urgency)
+                domaine, prestation_key, prestation_label, confidence, is_relevant = analyze_question(question, client_type, urgency)
+                estimation = calculate_estimate(domaine, prestation_key, urgency) if is_relevant else 0
 
                 # Une fois que tout est prêt, supprimer l'animation de chargement
                 loading_placeholder.empty()
@@ -176,15 +186,15 @@ def main():
                     st.info("Nous ne sommes pas sûr qu'il s'agisse d'une question d'ordre juridique. Nous allons tout de même tenter de vous fournir une estimation indicative.")
 
                 st.subheader("Résumé de l'estimation")
-                st.write(f"**Prestation identifiée :** {prestation.replace('_', ' ').capitalize() if prestation else 'Non déterminée'}")
+                st.write(f"**Domaine juridique :** {domaine}")
+                st.write(f"**Prestation identifiée :** {prestation_label}")
 
-                if prestation in tarifs:
-                    base_tarif = tarifs[prestation]
+                if is_relevant:
+                    base_tarif = tarifs['forfaits'][domaine][prestation_key]['tarif']
                     st.write(f"**Tarif de base :** {base_tarif} €HT")
                     
                     if urgency == "Urgent":
-                        facteur_urgence = tarifs.get("facteur_urgence", 1.5)
-                        st.write(f"**Facteur d'urgence appliqué :** x{facteur_urgence}")
+                        st.write(f"**Facteur d'urgence appliqué :** x{tarifs['facteur_urgence']}")
 
                     # Utilisation d'un conteneur stylisé pour mettre en valeur l'estimation
                     with st.container():
