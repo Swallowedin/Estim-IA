@@ -91,9 +91,14 @@ Options de prestations :
 
 def calculate_estimate(prestation: str, urgency: str) -> int:
     try:
-        estimation = tarifs.get(prestation, 0)
+        estimation = tarifs.get(prestation)
+        if estimation is None:
+            logger.error(f"Tarif non trouvé pour la prestation : {prestation}")
+            return 0
+        
         if urgency == "Urgent" and "facteur_urgence" in tarifs:
             estimation *= tarifs["facteur_urgence"]
+        
         return round(estimation)
     except Exception as e:
         logger.error(f"Erreur dans calculate_estimate: {str(e)}")
@@ -145,57 +150,70 @@ def main():
     question = st.text_area("Expliquez brièvement votre cas, notre intelligence artificielle s'occupe du reste !", height=150)
 
     if st.button("Obtenir une estimation grâce à l'intelligence artificielle"):
-        if question:
-            try:
-                loading_placeholder = st.empty()
-                with loading_placeholder:
-                    loading_animation = display_loading_animation()
+        if not question:
+            st.warning("Veuillez décrire votre cas avant de demander une estimation.")
+            return
+
+        try:
+            loading_placeholder = st.empty()
+            with loading_placeholder:
+                display_loading_animation()
+            
+            # Effectuer l'analyse
+            prestation, confidence, is_relevant = analyze_question(question, client_type, urgency)
+
+            # Supprimer l'animation de chargement
+            loading_placeholder.empty()
+
+            # Afficher les résultats de l'analyse
+            st.success("Analyse terminée. Voici les résultats :")
+            
+            st.subheader("Indice de confiance de l'analyse")
+            st.progress(confidence)
+            st.write(f"Confiance : {confidence:.2%}")
+
+            if confidence < 0.5:
+                st.warning("⚠️ Attention : Notre IA a eu des difficultés à analyser votre question avec certitude. L'estimation suivante peut manquer de précision.")
+            
+            if not is_relevant:
+                st.info("Nous ne sommes pas sûr qu'il s'agisse d'une question d'ordre juridique. L'estimation suivante est purement indicative.")
+
+            # Afficher les détails de la prestation et l'estimation
+            if prestation and prestation in tarifs:
+                st.subheader("Détails de la prestation")
+                st.write(f"**Prestation identifiée :** {prestation.replace('_', ' ').capitalize()}")
                 
-                # Effectuer l'analyse et le calcul
-                prestation, confidence, is_relevant = analyze_question(question, client_type, urgency)
+                base_tarif = tarifs[prestation]
+                st.write(f"**Tarif de base :** {base_tarif} €HT")
+                
                 estimation = calculate_estimate(prestation, urgency)
-
-                # Une fois que tout est prêt, supprimer l'animation de chargement
-                loading_placeholder.empty()
-
-                # Afficher les résultats
-                st.success("Analyse terminée. Voici les résultats :")
                 
-                st.subheader("Indice de confiance de l'analyse")
-                st.progress(confidence)
-                st.write(f"Confiance : {confidence:.2%}")
+                if urgency == "Urgent":
+                    facteur_urgence = tarifs.get("facteur_urgence", 1.5)
+                    st.write(f"**Facteur d'urgence appliqué :** x{facteur_urgence}")
 
-                if confidence < 0.5:
-                    st.warning("⚠️ Attention : Notre IA a eu des difficultés à analyser votre question avec certitude. L'estimation suivante peut manquer de précision.")
-                elif not is_relevant:
-                    st.info("Nous ne sommes pas sûr qu'il s'agisse d'une question d'ordre juridique. Nous allons tout de même tenter de vous fournir une estimation indicative.")
-
-                st.subheader("Résumé de l'estimation")
-                st.write(f"**Prestation :** {prestation if prestation else 'Non déterminée'}")
-
-                # Utilisation d'un conteneur stylisé pour mettre en valeur l'estimation
                 with st.container():
                     st.markdown(
                         f"""
                         <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; text-align: center;">
-                            <h3 style="color: #1f618d;">Estimation</h3>
+                            <h3 style="color: #1f618d;">Estimation finale</h3>
                             <p style="font-size: 24px; font-weight: bold; color: #2c3e50;">
-                                À partir de {estimation} €HT
+                                {estimation} €HT
                             </p>
                         </div>
                         """,
                         unsafe_allow_html=True
                     )
+            else:
+                st.warning("Nous n'avons pas pu identifier une prestation correspondante ou calculer une estimation précise.")
 
-                st.markdown("---")
-                st.markdown("### 💡 Alternative Recommandée")
-                st.info("**Consultation initiale d'une heure** - Tarif fixe : 100 € HT")
+            st.markdown("---")
+            st.markdown("### 💡 Alternative Recommandée")
+            st.info("**Consultation initiale d'une heure** - Tarif fixe : 100 € HT")
 
-            except Exception as e:
-                st.error(f"Une erreur s'est produite : {str(e)}")
-                logger.exception("Erreur dans le processus d'estimation")
-        else:
-            st.warning("Veuillez décrire votre cas avant de demander une estimation.")
+        except Exception as e:
+            st.error(f"Une erreur s'est produite lors de l'analyse : {str(e)}")
+            logger.exception("Erreur dans le processus d'estimation")
 
     st.markdown("---")
     st.write("© 2024 View Avocats. Tous droits réservés.")
