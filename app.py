@@ -182,20 +182,6 @@ def main():
                 domaine, prestation, confidence, is_relevant = analyze_question(question, client_type, urgency)
                 estimation = calculate_estimate(domaine, prestation, urgency)
 
-# Et modifier l'affichage de l'estimation :
-with st.container():
-    st.markdown(
-        f"""
-        <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; text-align: center;">
-            <h3 style="color: #1f618d;">Estimation</h3>
-            <p style="font-size: 24px; font-weight: bold; color: #2c3e50;">
-                À partir de {estimation} €HT
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
                 # Une fois que tout est prêt, supprimer l'animation de chargement
                 loading_placeholder.empty()
 
@@ -222,7 +208,7 @@ with st.container():
                         <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; text-align: center;">
                             <h3 style="color: #1f618d;">Estimation</h3>
                             <p style="font-size: 24px; font-weight: bold; color: #2c3e50;">
-                                Entre {estimation_basse} €HT et {estimation_haute} €HT
+                                À partir de {estimation} €HT
                             </p>
                         </div>
                         """,
