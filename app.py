@@ -84,30 +84,22 @@ def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo", num_iteration
         logger.error(f"Erreur lors de l'appel à l'API OpenAI: {e}")
         raise
 
-def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, str, float, bool]:
-    options = []
-    for domaine, prestations_domaine in tarifs["forfaits"].items():
-        domain_info = f"{domaine}:"
-        prestation_info = []
-        for prestation, details in prestations_domaine.items():
-            label = details.get("label", prestation)
-            prestation_info.append(f"{prestation} ({label})")
-        domain_info += ", ".join(prestation_info)
-        options.append(domain_info)
+def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, float, bool]:
+    forfaits = tarifs.get("forfaits", {})
+    options = [f"{prestation}" for prestation in forfaits.keys()]
 
-    prompt = f"""Analysez la question suivante et déterminez si elle est susceptible de concerner une thématique juridique. Si c'est fort probable, identifiez le domaine juridique et la prestation la plus pertinente.
+    prompt = f"""Analysez la question suivante et déterminez si elle est susceptible de concerner une thématique juridique. Si c'est fort probable, identifiez la prestation la plus pertinente.
 
 Question : {question}
 Type de client : {client_type}
 Degré d'urgence : {urgency}
 
-Options de domaines et prestations :
-{' '.join(options)}
+Options de prestations :
+{', '.join(options)}
 
 Répondez au format JSON strict suivant :
 {{
     "est_juridique": true/false,
-    "domaine": "nom du domaine juridique",
     "prestation": "nom de la prestation",
     "indice_confiance": 0.0 à 1.0
 }}
@@ -124,23 +116,21 @@ Répondez au format JSON strict suivant :
             logger.error("Erreur de décodage JSON dans la réponse de l'API")
     
     if not results:
-        return "", "", 0.0, False
+        return "", 0.0, False
 
     # Analyse des résultats
     is_legal = sum(r['est_juridique'] for r in results) > len(results) / 2
-    domain = max(set(r['domaine'] for r in results), key=lambda x: [r['domaine'] for r in results].count(x))
     service = max(set(r['prestation'] for r in results), key=lambda x: [r['prestation'] for r in results].count(x))
     confidence = sum(r['indice_confiance'] for r in results) / len(results)
     
-    # Vérification de la pertinence basée sur les données de tarifs_prestations.py
-    is_relevant = is_legal and domain in tarifs["forfaits"] and service in tarifs["forfaits"][domain]
+    # Vérification de la pertinence basée sur les données de tarifs
+    is_relevant = is_legal and service in forfaits
     
-    # Si le domaine ou le service n'est pas trouvé dans les données, on les met à "Non déterminé"
+    # Si le service n'est pas trouvé dans les données, on le met à "Non déterminée"
     if not is_relevant:
-        domain = "Non déterminé"
         service = "Non déterminée"
     
-    return domain, service, confidence, is_relevant
+    return service, confidence, is_relevant
     
 def calculate_estimate(domaine: str, prestation: str, urgency: str) -> int:
     try:
@@ -194,13 +184,11 @@ def main():
                     loading_animation = display_loading_animation()
                 
                 # Effectuer l'analyse et le calcul
-                domain, service, confidence, is_relevant = analyze_question(question, client_type, urgency)
+                service, confidence, is_relevant = analyze_question(question, client_type, urgency)
                 
-                # Récupérer les labels
-                domain_label = domain
-                service_label = tarifs["forfaits"].get(domain, {}).get(service, {}).get("label", service)
-                
-                estimation = calculate_estimate(domain, service, urgency) if is_relevant else None
+                estimation = tarifs["forfaits"].get(service) if is_relevant else None
+                if estimation and urgency == "Urgent":
+                    estimation *= tarifs["facteur_urgence"]
 
                 # Une fois que tout est prêt, supprimer l'animation de chargement
                 loading_placeholder.empty()
@@ -218,8 +206,7 @@ def main():
                     st.info("Nous ne sommes pas sûr qu'il s'agisse d'une question d'ordre juridique. Nous ne pouvons pas fournir d'estimation précise.")
 
                 st.subheader("Résumé de l'estimation")
-                st.write(f"**Domaine juridique :** {domain_label}")
-                st.write(f"**Prestation :** {service_label}")
+                st.write(f"**Prestation :** {service}")
 
                 # Utilisation d'un conteneur stylisé pour mettre en valeur l'estimation
                 if estimation:
@@ -229,7 +216,7 @@ def main():
                             <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; text-align: center;">
                                 <h3 style="color: #1f618d;">Estimation</h3>
                                 <p style="font-size: 24px; font-weight: bold; color: #2c3e50;">
-                                    À partir de {estimation} €HT
+                                    À partir de {round(estimation)} €HT
                                 </p>
                             </div>
                             """,
