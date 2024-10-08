@@ -198,7 +198,20 @@ def main():
                 st.subheader("Résumé de l'estimation")
                 st.write(f"**Domaine juridique :** {domaine if domaine else 'Non déterminé'}")
                 st.write(f"**Prestation :** {prestation if prestation else 'Non déterminée'}")
-                st.write(f"**Estimation :** Entre {estimation_basse} €HT et {estimation_haute} €HT")
+
+                # Utilisation d'un conteneur stylisé pour mettre en valeur l'estimation
+                with st.container():
+                    st.markdown(
+                        f"""
+                        <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; text-align: center;">
+                            <h3 style="color: #1f618d;">Estimation</h3>
+                            <p style="font-size: 24px; font-weight: bold; color: #2c3e50;">
+                                Entre {estimation_basse} €HT et {estimation_haute} €HT
+                            </p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
 
                 st.markdown("---")
                 st.markdown("### 💡 Alternative Recommandée")
@@ -212,6 +225,3 @@ def main():
 
     st.markdown("---")
     st.write("© 2024 View Avocats. Tous droits réservés.")
-
-if __name__ == "__main__":
-    main()
