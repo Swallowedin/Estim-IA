@@ -8,31 +8,6 @@ import importlib.util
 
 st.set_page_config(page_title="View Avocats - Obtenez une estimation grâce à l'IA", page_icon="⚖️", layout="wide")
 
-# Fonction pour appliquer le CSS personnalisé
-def apply_custom_css():
-    st.markdown("""
-        <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            header {visibility: hidden;}
-            .stApp > header {
-                background-color: transparent;
-            }
-            .stApp {
-                margin-top: -80px;
-            }
-            @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-            }
-            .loading-icon {
-                animation: spin 1s linear infinite;
-                display: inline-block;
-                margin-right: 10px;
-            }
-        </style>
-    """, unsafe_allow_html=True)
-
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -55,120 +30,44 @@ def load_py_module(file_path: str, module_name: str):
         logger.error(f"Erreur lors du chargement du module {module_name}: {e}")
         return None
 
-prestations_module = load_py_module('./prestations-heures.py', 'prestations_heures')
 tarifs_module = load_py_module('./tarifs-prestations.py', 'tarifs_prestations')
-instructions_module = load_py_module('./chatbot-instructions.py', 'consignes_chatbot')
 
 # Initialisation des variables globales
-prestations = prestations_module.get_prestations() if prestations_module else {}
 tarifs = tarifs_module.get_tarifs() if tarifs_module else {}
-instructions = instructions_module.get_chatbot_instructions() if instructions_module else ""
 
-def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo", num_iterations: int = 3) -> list:
-    try:
-        responses = []
-        for _ in range(num_iterations):
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": instructions},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.3,
-                max_tokens=4000
-            )
-            content = response.choices[0].message.content.strip()
-            responses.append(content)
-        return responses
-    except Exception as e:
-        logger.error(f"Erreur lors de l'appel à l'API OpenAI: {e}")
-        raise
-
-import re
+def print_tarifs_structure():
+    print("Structure de tarifs:")
+    for key, value in tarifs.items():
+        if isinstance(value, dict):
+            print(f"{key}:")
+            for sub_key, sub_value in value.items():
+                print(f"  {sub_key}: {sub_value}")
+        else:
+            print(f"{key}: {value}")
 
 def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, float, bool]:
     forfaits = tarifs.get("forfaits", {})
+    question_lower = question.lower()
     
-    # Définir des mots-clés pour chaque prestation
-    keywords = {
-        "consultation_initiale": ["consultation", "premier rendez-vous", "avis initial"],
-        "création_entreprise": ["créer entreprise", "création société", "monter une affaire"],
-        "rédaction_contrat_simple": ["contrat simple", "accord basique"],
-        "rédaction_contrat_complexe": ["contrat complexe", "accord détaillé"],
-        "procédure_divorce_amiable": ["divorce amiable", "séparation à l'amiable"],
-        "rédaction_statuts_société": ["statuts société", "statuts entreprise"],
-        "dépôt_marque": ["déposer marque", "enregistrement marque"],
-        "rédaction_bail_commercial": ["bail commercial", "location commerce"],
-        "rédaction_bail_locatif": ["bail locatif", "contrat location"],
-        "assignation_justice": ["assignation", "convocation tribunal"],
-        "constitution_partie_civile": ["partie civile", "se constituer partie"],
-        "litige_droit_construction": ["litige construction", "conflit chantier"],
-        "rédaction_contrat_construction": ["contrat construction", "accord travaux"],
-        "litige_malfacons_simple": ["malfaçons simples", "défauts mineurs"],
-        "litige_malfacons_complexe": ["malfaçons complexes", "vices cachés graves"],
-        "assistance_expertise_judiciaire": ["expertise judiciaire", "expert tribunal"],
-        "procédure_référé_construction": ["référé construction", "urgence chantier"]
-    }
+    for prestation, tarif in forfaits.items():
+        if prestation.lower().replace("_", " ") in question_lower:
+            return prestation, 1.0, True
     
-    # Fonction pour trouver la meilleure correspondance
-    def find_best_match(text):
-        best_match = None
-        max_count = 0
-        for prestation, kw_list in keywords.items():
-            count = sum(1 for kw in kw_list if re.search(r'\b' + re.escape(kw) + r'\b', text, re.IGNORECASE))
-            if count > max_count:
-                max_count = count
-                best_match = prestation
-        return best_match, max_count
+    return "Non déterminée", 0.0, False
 
-    # Trouver la meilleure correspondance
-    service, keyword_count = find_best_match(question.lower())
-    
-    # Calculer la confiance basée sur le nombre de mots-clés trouvés
-    confidence = min(keyword_count / 2, 1.0)  # 2 mots-clés ou plus donnent une confiance de 100%
-    
-    # Vérifier si le service est dans les forfaits
-    is_relevant = service in forfaits
-    
-    if not is_relevant:
-        service = "Non déterminée"
-        confidence = 0.0
-
-    return service, confidence, is_relevant
-    
-def calculate_estimate(domaine: str, prestation: str, urgency: str) -> int:
-    try:
-        # Chercher d'abord dans les forfaits
-        forfait = tarifs.get("forfaits", {}).get(domaine, {}).get(prestation, {}).get("tarif")
-        
-        # Si pas de forfait, calculer basé sur les heures
-        if forfait is None:
-            heures = prestations.get(domaine, {}).get(prestation, 10)
-            tarif_horaire = tarifs.get("tarif_horaire_standard", 250)
-            estimation = heures * tarif_horaire
-        else:
-            estimation = forfait
-
-        # Appliquer le facteur d'urgence si nécessaire
-        if urgency == "Urgent":
-            facteur_urgence = tarifs.get("facteur_urgence", 1.5)
-            estimation *= facteur_urgence
-
-        return round(estimation)
-    except Exception as e:
-        logger.exception(f"Erreur dans calculate_estimate: {str(e)}")
-        raise
-
-def display_loading_animation():
-    return st.markdown("""
-    <div style="display: flex; align-items: center; justify-content: center; flex-direction: column;">
-        <svg class="loading-icon" width="50" height="50" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12,1A11,11,0,1,0,23,12,11,11,0,0,0,12,1Zm0,19a8,8,1,1,1,8-8A8,8,0,0,1,12,20Z" opacity=".25"/>
-            <path d="M12,4a8,8,0,0,1,7.89,6.7A1.53,1.53,0,0,0,21.38,12h0a1.5,1.5,0,0,0,1.48-1.75,11,11,0,0,0-21.72,0A1.5,1.5,0,0,0,2.62,12h0a1.53,1.53,0,0,0,1.49-1.3A8,8,0,0,1,12,4Z"/>
-        </svg>
-        <p style="margin-top: 10px; font-weight: bold;">Estim'IA analyse votre cas juridique...</p>
-        <p>Veuillez patienter quelques secondes !</p>
-    </div>
+def apply_custom_css():
+    st.markdown("""
+        <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+            .stApp > header {
+                background-color: transparent;
+            }
+            .stApp {
+                margin-top: -80px;
+            }
+        </style>
     """, unsafe_allow_html=True)
 
 def main():
