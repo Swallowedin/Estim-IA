@@ -97,11 +97,17 @@ Degré d'urgence : {urgency}
 Options de prestations :
 {', '.join(options)}
 
+Exemples :
+1. "Je souhaite créer mon entreprise" -> "création_entreprise"
+2. "J'ai besoin d'un contrat de travail" -> "rédaction_contrat_simple"
+3. "Je suis en conflit avec mon entrepreneur pour des malfaçons" -> "litige_malfacons_simple"
+
 Répondez au format JSON strict suivant :
 {{
     "est_juridique": true/false,
     "prestation": "nom de la prestation",
-    "indice_confiance": 0.0 à 1.0
+    "indice_confiance": 0.0 à 1.0,
+    "explication": "Brève explication du choix"
 }}
 """
 
@@ -112,8 +118,9 @@ Répondez au format JSON strict suivant :
         try:
             result = json.loads(response)
             results.append(result)
+            print(f"Réponse de l'IA: {result}")  # Débogage
         except json.JSONDecodeError:
-            logger.error("Erreur de décodage JSON dans la réponse de l'API")
+            logger.error(f"Erreur de décodage JSON dans la réponse de l'API: {response}")
     
     if not results:
         return "", 0.0, False
@@ -123,6 +130,12 @@ Répondez au format JSON strict suivant :
     service = max(set(r['prestation'] for r in results), key=lambda x: [r['prestation'] for r in results].count(x))
     confidence = sum(r['indice_confiance'] for r in results) / len(results)
     
+    # Correspondance partielle
+    if service not in forfaits:
+        best_match = max(forfaits.keys(), key=lambda x: difflib.SequenceMatcher(None, x, service).ratio())
+        if difflib.SequenceMatcher(None, best_match, service).ratio() > 0.6:
+            service = best_match
+    
     # Vérification de la pertinence basée sur les données de tarifs
     is_relevant = is_legal and service in forfaits
     
@@ -130,6 +143,7 @@ Répondez au format JSON strict suivant :
     if not is_relevant:
         service = "Non déterminée"
     
+    print(f"Prestation identifiée: {service}")  # Débogage
     return service, confidence, is_relevant
     
 def calculate_estimate(domaine: str, prestation: str, urgency: str) -> int:
@@ -206,7 +220,8 @@ def main():
                     st.info("Nous ne sommes pas sûr qu'il s'agisse d'une question d'ordre juridique. Nous ne pouvons pas fournir d'estimation précise.")
 
                 st.subheader("Résumé de l'estimation")
-                st.write(f"**Prestation :** {service}")
+                st.write(f"**Prestation identifiée :** {service}")
+                st.write(f"**Est pertinent :** {'Oui' if is_relevant else 'Non'}")
 
                 # Utilisation d'un conteneur stylisé pour mettre en valeur l'estimation
                 if estimation:
