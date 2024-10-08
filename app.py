@@ -84,66 +84,56 @@ def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo", num_iteration
         logger.error(f"Erreur lors de l'appel à l'API OpenAI: {e}")
         raise
 
+import re
+
 def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, float, bool]:
     forfaits = tarifs.get("forfaits", {})
-    options = [f"{prestation}" for prestation in forfaits.keys()]
-
-    prompt = f"""Analysez la question suivante et déterminez si elle est susceptible de concerner une thématique juridique. Si c'est fort probable, identifiez la prestation la plus pertinente.
-
-Question : {question}
-Type de client : {client_type}
-Degré d'urgence : {urgency}
-
-Options de prestations :
-{', '.join(options)}
-
-Exemples :
-1. "Je souhaite créer mon entreprise" -> "création_entreprise"
-2. "J'ai besoin d'un contrat de travail" -> "rédaction_contrat_simple"
-3. "Je suis en conflit avec mon entrepreneur pour des malfaçons" -> "litige_malfacons_simple"
-
-Répondez au format JSON strict suivant :
-{{
-    "est_juridique": true/false,
-    "prestation": "nom de la prestation",
-    "indice_confiance": 0.0 à 1.0,
-    "explication": "Brève explication du choix"
-}}
-"""
-
-    responses = get_openai_response(prompt)
     
-    results = []
-    for response in responses:
-        try:
-            result = json.loads(response)
-            results.append(result)
-            print(f"Réponse de l'IA: {result}")  # Débogage
-        except json.JSONDecodeError:
-            logger.error(f"Erreur de décodage JSON dans la réponse de l'API: {response}")
+    # Définir des mots-clés pour chaque prestation
+    keywords = {
+        "consultation_initiale": ["consultation", "premier rendez-vous", "avis initial"],
+        "création_entreprise": ["créer entreprise", "création société", "monter une affaire"],
+        "rédaction_contrat_simple": ["contrat simple", "accord basique"],
+        "rédaction_contrat_complexe": ["contrat complexe", "accord détaillé"],
+        "procédure_divorce_amiable": ["divorce amiable", "séparation à l'amiable"],
+        "rédaction_statuts_société": ["statuts société", "statuts entreprise"],
+        "dépôt_marque": ["déposer marque", "enregistrement marque"],
+        "rédaction_bail_commercial": ["bail commercial", "location commerce"],
+        "rédaction_bail_locatif": ["bail locatif", "contrat location"],
+        "assignation_justice": ["assignation", "convocation tribunal"],
+        "constitution_partie_civile": ["partie civile", "se constituer partie"],
+        "litige_droit_construction": ["litige construction", "conflit chantier"],
+        "rédaction_contrat_construction": ["contrat construction", "accord travaux"],
+        "litige_malfacons_simple": ["malfaçons simples", "défauts mineurs"],
+        "litige_malfacons_complexe": ["malfaçons complexes", "vices cachés graves"],
+        "assistance_expertise_judiciaire": ["expertise judiciaire", "expert tribunal"],
+        "procédure_référé_construction": ["référé construction", "urgence chantier"]
+    }
     
-    if not results:
-        return "", 0.0, False
+    # Fonction pour trouver la meilleure correspondance
+    def find_best_match(text):
+        best_match = None
+        max_count = 0
+        for prestation, kw_list in keywords.items():
+            count = sum(1 for kw in kw_list if re.search(r'\b' + re.escape(kw) + r'\b', text, re.IGNORECASE))
+            if count > max_count:
+                max_count = count
+                best_match = prestation
+        return best_match, max_count
 
-    # Analyse des résultats
-    is_legal = sum(r['est_juridique'] for r in results) > len(results) / 2
-    service = max(set(r['prestation'] for r in results), key=lambda x: [r['prestation'] for r in results].count(x))
-    confidence = sum(r['indice_confiance'] for r in results) / len(results)
+    # Trouver la meilleure correspondance
+    service, keyword_count = find_best_match(question.lower())
     
-    # Correspondance partielle
-    if service not in forfaits:
-        best_match = max(forfaits.keys(), key=lambda x: difflib.SequenceMatcher(None, x, service).ratio())
-        if difflib.SequenceMatcher(None, best_match, service).ratio() > 0.6:
-            service = best_match
+    # Calculer la confiance basée sur le nombre de mots-clés trouvés
+    confidence = min(keyword_count / 2, 1.0)  # 2 mots-clés ou plus donnent une confiance de 100%
     
-    # Vérification de la pertinence basée sur les données de tarifs
-    is_relevant = is_legal and service in forfaits
+    # Vérifier si le service est dans les forfaits
+    is_relevant = service in forfaits
     
-    # Si le service n'est pas trouvé dans les données, on le met à "Non déterminée"
     if not is_relevant:
         service = "Non déterminée"
-    
-    print(f"Prestation identifiée: {service}")  # Débogage
+        confidence = 0.0
+
     return service, confidence, is_relevant
     
 def calculate_estimate(domaine: str, prestation: str, urgency: str) -> int:
@@ -214,31 +204,25 @@ def main():
                 st.progress(confidence)
                 st.write(f"Confiance : {confidence:.2%}")
 
-                if confidence < 0.5:
-                    st.warning("⚠️ Attention : Notre IA a eu des difficultés à analyser votre question avec certitude. L'estimation suivante peut manquer de précision.")
-                elif not is_relevant:
-                    st.info("Nous ne sommes pas sûr qu'il s'agisse d'une question d'ordre juridique. Nous ne pouvons pas fournir d'estimation précise.")
-
-                st.subheader("Résumé de l'estimation")
-                st.write(f"**Prestation identifiée :** {service}")
-                st.write(f"**Est pertinent :** {'Oui' if is_relevant else 'Non'}")
-
-                # Utilisation d'un conteneur stylisé pour mettre en valeur l'estimation
-                if estimation:
-                    with st.container():
-                        st.markdown(
-                            f"""
-                            <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; text-align: center;">
-                                <h3 style="color: #1f618d;">Estimation</h3>
-                                <p style="font-size: 24px; font-weight: bold; color: #2c3e50;">
-                                    À partir de {round(estimation)} €HT
-                                </p>
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
+                if service == "Non déterminée":
+                    st.warning("⚠️ Nous n'avons pas pu identifier précisément votre besoin. Veuillez fournir plus de détails ou contacter directement notre cabinet pour une évaluation personnalisée.")
                 else:
-                    st.info("Nous ne pouvons pas fournir d'estimation précise pour ce cas.")
+                    st.subheader("Résumé de l'estimation")
+                    st.write(f"**Prestation identifiée :** {service.replace('_', ' ').capitalize()}")
+
+                    if estimation:
+                        with st.container():
+                            st.markdown(
+                                f"""
+                                <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; text-align: center;">
+                                    <h3 style="color: #1f618d;">Estimation</h3>
+                                    <p style="font-size: 24px; font-weight: bold; color: #2c3e50;">
+                                        À partir de {round(estimation)} €HT
+                                    </p>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
 
                 st.markdown("---")
                 st.markdown("### 💡 Alternative Recommandée")
