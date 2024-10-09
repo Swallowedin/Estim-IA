@@ -62,7 +62,7 @@ def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str
     for domaine, prestations in tarifs.items():
         if isinstance(prestations, dict):  # Vérifier que c'est un domaine juridique
             for prestation, details in prestations.items():
-                if 'label' in details:
+                if isinstance(details, dict) and 'label' in details:
                     options.append(f"{domaine}: {details['label']}")
 
     prompt = f"""Analysez la question suivante et déterminez si elle est susceptible de concerner une thématique juridique. Si c'est fort probable, identifiez le domaine juridique et la prestation la plus pertinente.
@@ -97,10 +97,10 @@ Options de domaines et prestations :
     
     # Vérifier si le domaine et la prestation existent dans tarifs
     is_relevant = domaine in tarifs and isinstance(tarifs[domaine], dict) and \
-                  any(p for p in tarifs[domaine] if tarifs[domaine][p]['label'] == prestation)
+                  any(p for p in tarifs[domaine] if tarifs[domaine][p].get('label') == prestation)
     
     if is_relevant:
-        prestation_key = next(p for p in tarifs[domaine] if tarifs[domaine][p]['label'] == prestation)
+        prestation_key = next(p for p in tarifs[domaine] if tarifs[domaine][p].get('label') == prestation)
         prestation_label = tarifs[domaine][prestation_key]['label']
     else:
         domaine, prestation_key, prestation_label = "", "", "Non déterminée"
@@ -189,16 +189,14 @@ def main():
 
                 if confidence < 0.5:
                     st.warning("⚠️ Attention : Notre IA a eu des difficultés à analyser votre question avec certitude. L'estimation suivante peut manquer de précision.")
-
+                
                 st.subheader("Résumé de l'estimation")
                 st.write(f"**Domaine juridique :** {domaine}")
                 st.write(f"**Prestation identifiée :** {prestation_label}")
 
-                # Utiliser la méthode get() pour éviter les erreurs d'accès aux clés
-                prestation_info = tarifs.get(domaine, {}).get(prestation_key, {})
-                base_tarif = prestation_info.get('tarif', 0)
-
-                if base_tarif > 0:
+                if is_relevant and domaine in tarifs and prestation_key in tarifs[domaine]:
+                    prestation_info = tarifs[domaine][prestation_key]
+                    base_tarif = prestation_info['tarif']
                     st.write(f"**Tarif de base :** {base_tarif} €HT")
                     
                     estimation = base_tarif
@@ -222,9 +220,8 @@ def main():
                         )
 
                     # Afficher la définition de la prestation si disponible
-                    definition = prestation_info.get('definition')
-                    if definition:
-                        st.info(f"**Définition de la prestation :** {definition}")
+                    if 'definition' in prestation_info:
+                        st.info(f"**Définition de la prestation :** {prestation_info['definition']}")
 
                 else:
                     if not is_relevant:
@@ -234,9 +231,9 @@ def main():
 
                 st.markdown("---")
                 st.markdown("### 💡 Alternative Recommandée")
-                consultation_initiale = tarifs.get("droit_civil_contrats", {}).get("consultation_initiale", {})
-                if consultation_initiale:
-                    st.info(f"**Consultation initiale** - Tarif fixe : {consultation_initiale.get('tarif', 100)} € HT")
+                if "droit_civil_contrats" in tarifs and "consultation_initiale" in tarifs["droit_civil_contrats"]:
+                    consultation_initiale = tarifs["droit_civil_contrats"]["consultation_initiale"]
+                    st.info(f"**Consultation initiale** - Tarif fixe : {consultation_initiale['tarif']} € HT")
                 else:
                     st.info("**Consultation initiale d'une heure** - Tarif fixe : 100 € HT")
 
