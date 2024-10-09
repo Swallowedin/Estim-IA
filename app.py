@@ -168,8 +168,7 @@ def main():
                 
                 # Effectuer l'analyse et le calcul
                 domaine, prestation, confidence, is_relevant = analyze_question(question, client_type, urgency)
-                estimation = calculate_estimate(domaine, prestation, urgency)
-
+                
                 # Une fois que tout est prêt, supprimer l'animation de chargement
                 loading_placeholder.empty()
 
@@ -180,15 +179,25 @@ def main():
                 st.progress(confidence)
                 st.write(f"Confiance : {confidence:.2%}")
 
-                if confidence < 0.5:
-                    st.warning("⚠️ Attention : Notre IA a eu des difficultés à analyser votre question avec certitude. L'estimation suivante peut manquer de précision.")
-                elif not is_relevant:
-                    st.info("Nous ne sommes pas sûr qu'il s'agisse d'une question d'ordre juridique. Nous allons tout de même tenter de vous fournir une estimation indicative.")
+                if confidence < 0.5 or not is_relevant:
+                    st.warning("⚠️ Attention : Notre IA a eu des difficultés à analyser votre question avec certitude. L'estimation suivante peut manquer de précision ou ne pas être applicable.")
 
                 st.subheader("Résumé de l'estimation")
                 st.write(f"**Domaine juridique :** {domaine}")
-                st.write(f"**Prestation :** {tarifs['prestations'][domaine][prestation]['label']}")
-                st.write(f"**Estimation :** À partir de {tarifs['prestations'][domaine][prestation]['tarif']} €HT")
+                
+                prestation_label = tarifs['prestations'].get(domaine, {}).get(prestation, {}).get('label', 'Non déterminée')
+                st.write(f"**Prestation :** {prestation_label}")
+                
+                if domaine != "Non déterminé" and prestation != "Non déterminé":
+                    tarif = tarifs['prestations'].get(domaine, {}).get(prestation, {}).get('tarif', 'Non disponible')
+                    if isinstance(tarif, (int, float)):
+                        if urgency == "Urgent":
+                            tarif = round(tarif * tarifs.get("facteur_urgence", 1.5))
+                        st.write(f"**Estimation :** À partir de {tarif} €HT")
+                    else:
+                        st.write(f"**Estimation :** {tarif}")
+                else:
+                    st.write("**Estimation :** Non disponible pour cette demande spécifique.")
 
                 st.markdown("---")
                 st.markdown("### 💡 Alternative Recommandée")
