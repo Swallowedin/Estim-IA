@@ -162,7 +162,16 @@ def main():
     if st.button("Obtenir une estimation grâce à l'intelligence artificielle"):
         if question:
             try:
-                # ... (le code précédent reste inchangé)
+                loading_placeholder = st.empty()
+                with loading_placeholder:
+                    loading_animation = display_loading_animation()
+                
+                # Effectuer l'analyse et le calcul
+                domaine, prestation, confidence, is_relevant = analyze_question(question, client_type, urgency)
+                estimation = calculate_estimate(domaine, prestation, urgency)
+
+                # Une fois que tout est prêt, supprimer l'animation de chargement
+                loading_placeholder.empty()
 
                 # Afficher les résultats
                 st.success("Analyse terminée. Voici les résultats :")
