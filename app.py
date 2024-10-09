@@ -59,9 +59,10 @@ def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo", num_iteration
 
 def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, str, str, float, bool]:
     options = []
-    for domaine, prestations in tarifs["forfaits"].items():
-        for prestation, details in prestations.items():
-            options.append(f"{domaine}: {details['label']}")
+    for domaine, prestations in tarifs.items():
+        if isinstance(prestations, dict):  # Vérifier que c'est un domaine juridique
+            for prestation, details in prestations.items():
+                options.append(f"{domaine}: {details['label']}")
 
     prompt = f"""Analysez la question suivante et déterminez si elle est susceptible de concerner une thématique juridique. Si c'est fort probable, identifiez le domaine juridique et la prestation la plus pertinente.
 
@@ -94,12 +95,12 @@ Options de domaines et prestations :
     confidence = results.count((domaine, prestation)) / len(results)
     
     # Vérifier si le domaine et la prestation existent dans tarifs
-    is_relevant = domaine in tarifs["forfaits"] and \
-                  any(p for p in tarifs["forfaits"][domaine] if tarifs["forfaits"][domaine][p]['label'] == prestation)
+    is_relevant = domaine in tarifs and isinstance(tarifs[domaine], dict) and \
+                  any(p for p in tarifs[domaine] if tarifs[domaine][p]['label'] == prestation)
     
     if is_relevant:
-        prestation_key = next(p for p in tarifs["forfaits"][domaine] if tarifs["forfaits"][domaine][p]['label'] == prestation)
-        prestation_label = tarifs["forfaits"][domaine][prestation_key]['label']
+        prestation_key = next(p for p in tarifs[domaine] if tarifs[domaine][p]['label'] == prestation)
+        prestation_label = tarifs[domaine][prestation_key]['label']
     else:
         domaine, prestation_key, prestation_label = "", "", "Non déterminée"
     
@@ -107,7 +108,7 @@ Options de domaines et prestations :
 
 def calculate_estimate(domaine: str, prestation: str, urgency: str) -> int:
     try:
-        estimation = tarifs["forfaits"][domaine][prestation]['tarif']
+        estimation = tarifs[domaine][prestation]['tarif']
         if urgency == "Urgent":
             estimation *= tarifs["facteur_urgence"]
         return round(estimation)
@@ -115,6 +116,10 @@ def calculate_estimate(domaine: str, prestation: str, urgency: str) -> int:
         logger.error(f"Tarif non trouvé pour : {domaine} - {prestation}")
         return 0
 
+# Dans la fonction main(), remplacez cette ligne :
+base_tarif = tarifs[domaine][prestation_key]['tarif']
+# par :
+base_tarif = tarifs[domaine][prestation_key]['tarif'] if domaine in tarifs and prestation_key in tarifs[domaine] else 0
 def apply_custom_css():
     st.markdown("""
         <style>
