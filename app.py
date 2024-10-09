@@ -8,29 +8,34 @@ import importlib.util
 
 st.set_page_config(page_title="View Avocats - Obtenez une estimation grâce à l'IA", page_icon="⚖️", layout="wide")
 
+# Fonction pour appliquer le CSS personnalisé
+def apply_custom_css():
+    st.markdown("""
+        <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+            .stApp > header {
+                background-color: transparent;
+            }
+            .stApp {
+                margin-top: -80px;
+            }
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            .loading-icon {
+                animation: spin 1s linear infinite;
+                display: inline-block;
+                margin-right: 10px;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Chargement du module tarifs_prestations
-def load_tarifs_module():
-    try:
-        spec = importlib.util.spec_from_file_location("tarifs_prestations", "./tarifs_prestations.py")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module.get_tarifs()
-    except FileNotFoundError:
-        logger.error("Le fichier tarifs_prestations.py n'a pas été trouvé.")
-    except AttributeError:
-        logger.error("La fonction get_tarifs n'a pas été trouvée dans le module tarifs_prestations.")
-    except Exception as e:
-        logger.error(f"Une erreur s'est produite lors du chargement du module tarifs_prestations: {str(e)}")
-    return {}
-
-# Chargement des tarifs
-tarifs = load_tarifs_module()
-
-st.set_page_config(page_title="View Avocats - Obtenez une estimation grâce à l'IA", page_icon="⚖️", layout="wide")
 
 # Configuration du client OpenAI
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
@@ -50,8 +55,8 @@ def load_py_module(file_path: str, module_name: str):
         logger.error(f"Erreur lors du chargement du module {module_name}: {e}")
         return None
 
-tarifs_module = load_py_module('./tarifs_prestations.py', 'tarifs_prestations')
-instructions_module = load_py_module('./chatbot-instructions.py', 'chatbot_instructions')
+tarifs_module = load_py_module('./tarifs-prestations.py', 'tarifs_prestations')
+instructions_module = load_py_module('./chatbot-instructions.py', 'consignes_chatbot')
 
 # Initialisation des variables globales
 tarifs = tarifs_module.get_tarifs() if tarifs_module else {}
@@ -77,14 +82,8 @@ def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo", num_iteration
         logger.error(f"Erreur lors de l'appel à l'API OpenAI: {e}")
         raise
 
-def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, str, str, float, bool]:
-    options = []
-    for domaine, prestations in tarifs.items():
-        if isinstance(prestations, dict) and domaine not in ["tarif_horaire_standard", "tarif_externalisation", "facteur_urgence"]:
-            for prestation, details in prestations.items():
-                if isinstance(details, dict) and 'label' in details:
-                    options.append(f"{domaine}: {details['label']}")
-                    
+def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, str, float, bool]:
+    options = [f"{domaine}: {', '.join(prestations_domaine.keys())}" for domaine, prestations_domaine in tarifs['prestations'].items()]
     prompt = f"""Analysez la question suivante et déterminez si elle est susceptible de concerner une thématique juridique. Si c'est fort probable, identifiez le domaine juridique et la prestation la plus pertinente.
 
 Question : {question}
@@ -92,7 +91,15 @@ Type de client : {client_type}
 Degré d'urgence : {urgency}
 
 Options de domaines et prestations :
-{' | '.join(options)}
+{' '.join(options)}
+
+Répondez au format JSON strict suivant :
+{{
+    "est_juridique": true/false,
+    "domaine": "nom du domaine juridique",
+    "prestation": "nom de la prestation",
+    "indice_confiance": 0.0 à 1.0
+}}
 """
 
     responses = get_openai_response(prompt)
@@ -100,71 +107,36 @@ Options de domaines et prestations :
     results = []
     for response in responses:
         try:
-            lines = response.strip().split('\n')
-            if len(lines) >= 2:
-                domaine = lines[0]
-                prestation = lines[1]
-                results.append((domaine, prestation))
-        except Exception as e:
-            logger.error(f"Erreur dans l'analyse de la réponse: {e}")
+            result = json.loads(response)
+            results.append(result)
+        except json.JSONDecodeError:
+            logger.error("Erreur de décodage JSON dans la réponse de l'API")
     
     if not results:
-        return "", "", "", 0.0, False
+        return "", "", 0.0, False
 
     # Analyse simplifiée des résultats
-    domaine, prestation = max(set(results), key=results.count)
-    confidence = results.count((domaine, prestation)) / len(results)
+    is_legal = sum(r['est_juridique'] for r in results) > len(results) / 2
+    domain = max(set(r['domaine'] for r in results), key=lambda x: [r['domaine'] for r in results].count(x))
+    service = max(set(r['prestation'] for r in results), key=lambda x: [r['prestation'] for r in results].count(x))
+    confidence = sum(r['indice_confiance'] for r in results) / len(results)
     
-    # Vérifier si le domaine et la prestation existent dans tarifs
-    is_relevant = domaine in tarifs and isinstance(tarifs[domaine], dict) and \
-                  any(p for p in tarifs[domaine] if tarifs[domaine][p].get('label') == prestation)
+    is_relevant = is_legal and domain in tarifs['prestations'] and service in tarifs['prestations'][domain]
     
-    if is_relevant:
-        prestation_key = next(p for p in tarifs[domaine] if tarifs[domaine][p].get('label') == prestation)
-        prestation_label = tarifs[domaine][prestation_key]['label']
-    else:
-        domaine, prestation_key, prestation_label = "", "", "Non déterminée"
-    
-    return domaine, prestation_key, prestation_label, confidence, is_relevant
+    return domain, service, confidence, is_relevant
 
 def calculate_estimate(domaine: str, prestation: str, urgency: str) -> int:
     try:
-        estimation = tarifs[domaine][prestation]['tarif']
+        tarif_fixe = tarifs['prestations'].get(domaine, {}).get(prestation, 0)
+        
         if urgency == "Urgent":
-            estimation *= tarifs["facteur_urgence"]
-        return round(estimation)
-    except KeyError:
-        logger.error(f"Tarif non trouvé pour : {domaine} - {prestation}")
-        return 0
+            facteur_urgence = tarifs.get("facteur_urgence", 1.5)
+            tarif_fixe = round(tarif_fixe * facteur_urgence)
 
-
-# Dans la fonction main(), remplacez cette ligne :
-base_tarif = tarifs[domaine][prestation_key]['tarif']
-# par :
-base_tarif = tarifs[domaine][prestation_key]['tarif'] if domaine in tarifs and prestation_key in tarifs[domaine] else 0
-def apply_custom_css():
-    st.markdown("""
-        <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            header {visibility: hidden;}
-            .stApp > header {
-                background-color: transparent;
-            }
-            .stApp {
-                margin-top: -80px;
-            }
-            @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-            }
-            .loading-icon {
-                animation: spin 1s linear infinite;
-                display: inline-block;
-                margin-right: 10px;
-            }
-        </style>
-    """, unsafe_allow_html=True)
+        return tarif_fixe
+    except Exception as e:
+        logger.exception(f"Erreur dans calculate_estimate: {str(e)}")
+        raise
 
 def display_loading_animation():
     return st.markdown("""
@@ -181,7 +153,7 @@ def display_loading_animation():
 def main():
     apply_custom_css()
     
-    st.title("🏛️ View Avocats - Estim'IA")
+    st.title("🏛️ View Avocats - EstimiIA")
 
     client_type = st.selectbox("Vous êtes :", ("Particulier", "Entreprise"))
     urgency = st.selectbox("Degré d'urgence :", ("Normal", "Urgent"))
@@ -192,12 +164,16 @@ def main():
             try:
                 loading_placeholder = st.empty()
                 with loading_placeholder:
-                    display_loading_animation()
+                    loading_animation = display_loading_animation()
                 
-                domaine, prestation_key, prestation_label, confidence, is_relevant = analyze_question(question, client_type, urgency)
-                
+                # Effectuer l'analyse et le calcul
+                domaine, prestation, confidence, is_relevant = analyze_question(question, client_type, urgency)
+                estimation = calculate_estimate(domaine, prestation, urgency)
+
+                # Une fois que tout est prêt, supprimer l'animation de chargement
                 loading_placeholder.empty()
 
+                # Afficher les résultats
                 st.success("Analyse terminée. Voici les résultats :")
                 
                 st.subheader("Indice de confiance de l'analyse")
@@ -206,51 +182,17 @@ def main():
 
                 if confidence < 0.5:
                     st.warning("⚠️ Attention : Notre IA a eu des difficultés à analyser votre question avec certitude. L'estimation suivante peut manquer de précision.")
-                
+                elif not is_relevant:
+                    st.info("Nous ne sommes pas sûr qu'il s'agisse d'une question d'ordre juridique. Nous allons tout de même tenter de vous fournir une estimation indicative.")
+
                 st.subheader("Résumé de l'estimation")
-                st.write(f"**Domaine juridique :** {domaine}")
-                st.write(f"**Prestation identifiée :** {prestation_label}")
-
-                if is_relevant and domaine in tarifs and prestation_key in tarifs.get(domaine, {}):
-                    prestation_info = tarifs[domaine][prestation_key]
-                    base_tarif = prestation_info.get('tarif', 0)
-                    st.write(f"**Tarif de base :** {base_tarif} €HT")
-                    
-                    estimation = base_tarif
-                    if urgency == "Urgent":
-                        facteur_urgence = tarifs.get("facteur_urgence", 1.5)
-                        estimation *= facteur_urgence
-                        st.write(f"**Facteur d'urgence appliqué :** x{facteur_urgence}")
-
-                    with st.container():
-                        st.markdown(
-                            f"""
-                            <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; text-align: center;">
-                                <h3 style="color: #1f618d;">Estimation</h3>
-                                <p style="font-size: 24px; font-weight: bold; color: #2c3e50;">
-                                    {round(estimation)} €HT
-                                </p>
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-
-                    if 'definition' in prestation_info:
-                        st.info(f"**Définition de la prestation :** {prestation_info['definition']}")
-
-                else:
-                    if not is_relevant:
-                        st.warning("Nous ne sommes pas sûrs qu'il s'agisse d'une question d'ordre juridique ou nous n'avons pas pu identifier une prestation spécifique.")
-                    else:
-                        st.warning("Nous n'avons pas pu calculer une estimation précise pour cette prestation.")
+                st.write(f"**Domaine juridique :** {domaine if domaine else 'Non déterminé'}")
+                st.write(f"**Prestation :** {prestation if prestation else 'Non déterminée'}")
+                st.write(f"**Estimation :** À partir de {estimation} €HT")
 
                 st.markdown("---")
                 st.markdown("### 💡 Alternative Recommandée")
-                consultation_initiale = tarifs.get("droit_civil_contrats", {}).get("consultation_initiale", {})
-                if consultation_initiale:
-                    st.info(f"**Consultation initiale** - Tarif fixe : {consultation_initiale.get('tarif', 100)} € HT")
-                else:
-                    st.info("**Consultation initiale d'une heure** - Tarif fixe : 100 € HT")
+                st.info(f"**Consultation initiale d'une heure** - Tarif fixe : {tarifs['consultation_initiale']} € HT")
 
             except Exception as e:
                 st.error(f"Une erreur s'est produite : {str(e)}")
@@ -260,6 +202,6 @@ def main():
 
     st.markdown("---")
     st.write("© 2024 View Avocats. Tous droits réservés.")
-    
+
 if __name__ == "__main__":
     main()
