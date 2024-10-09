@@ -6,10 +6,6 @@ import logging
 from typing import Tuple, Dict, Any
 import importlib.util
 
-from tarifs_prestations import get_tarifs
-
-tarifs = get_tarifs()
-
 st.set_page_config(page_title="View Avocats - Obtenez une estimation grâce à l'IA", page_icon="⚖️", layout="wide")
 
 # Configuration du logging
