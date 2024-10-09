@@ -6,6 +6,10 @@ import logging
 from typing import Tuple, Dict, Any
 import importlib.util
 
+from tarifs_prestations import get_tarifs
+
+tarifs = get_tarifs()
+
 st.set_page_config(page_title="View Avocats - Obtenez une estimation grâce à l'IA", page_icon="⚖️", layout="wide")
 
 # Configuration du logging
@@ -191,9 +195,9 @@ def main():
                 st.write(f"**Domaine juridique :** {domaine}")
                 st.write(f"**Prestation identifiée :** {prestation_label}")
 
-                if is_relevant and domaine in tarifs and prestation_key in tarifs[domaine]:
+                if is_relevant and domaine in tarifs and prestation_key in tarifs.get(domaine, {}):
                     prestation_info = tarifs[domaine][prestation_key]
-                    base_tarif = prestation_info['tarif']
+                    base_tarif = prestation_info.get('tarif', 0)
                     st.write(f"**Tarif de base :** {base_tarif} €HT")
                     
                     estimation = base_tarif
@@ -226,9 +230,9 @@ def main():
 
                 st.markdown("---")
                 st.markdown("### 💡 Alternative Recommandée")
-                if "droit_civil_contrats" in tarifs and "consultation_initiale" in tarifs["droit_civil_contrats"]:
-                    consultation_initiale = tarifs["droit_civil_contrats"]["consultation_initiale"]
-                    st.info(f"**Consultation initiale** - Tarif fixe : {consultation_initiale['tarif']} € HT")
+                consultation_initiale = tarifs.get("droit_civil_contrats", {}).get("consultation_initiale", {})
+                if consultation_initiale:
+                    st.info(f"**Consultation initiale** - Tarif fixe : {consultation_initiale.get('tarif', 100)} € HT")
                 else:
                     st.info("**Consultation initiale d'une heure** - Tarif fixe : 100 € HT")
 
