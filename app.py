@@ -194,9 +194,11 @@ def main():
                 st.write(f"**Domaine juridique :** {domaine}")
                 st.write(f"**Prestation identifiée :** {prestation_label}")
 
-                if is_relevant and domaine in tarifs and prestation_key in tarifs[domaine]:
-                    prestation_info = tarifs[domaine][prestation_key]
-                    base_tarif = prestation_info['tarif']
+                # Utiliser la méthode get() pour éviter les erreurs d'accès aux clés
+                prestation_info = tarifs.get(domaine, {}).get(prestation_key, {})
+                base_tarif = prestation_info.get('tarif', 0)
+
+                if base_tarif > 0:
                     st.write(f"**Tarif de base :** {base_tarif} €HT")
                     
                     estimation = base_tarif
@@ -220,8 +222,9 @@ def main():
                         )
 
                     # Afficher la définition de la prestation si disponible
-                    if 'definition' in prestation_info:
-                        st.info(f"**Définition de la prestation :** {prestation_info['definition']}")
+                    definition = prestation_info.get('definition')
+                    if definition:
+                        st.info(f"**Définition de la prestation :** {definition}")
 
                 else:
                     if not is_relevant:
@@ -233,7 +236,7 @@ def main():
                 st.markdown("### 💡 Alternative Recommandée")
                 consultation_initiale = tarifs.get("droit_civil_contrats", {}).get("consultation_initiale", {})
                 if consultation_initiale:
-                    st.info(f"**Consultation initiale** - Tarif fixe : {consultation_initiale['tarif']} € HT")
+                    st.info(f"**Consultation initiale** - Tarif fixe : {consultation_initiale.get('tarif', 100)} € HT")
                 else:
                     st.info("**Consultation initiale d'une heure** - Tarif fixe : 100 € HT")
 
@@ -245,6 +248,6 @@ def main():
 
     st.markdown("---")
     st.write("© 2024 View Avocats. Tous droits réservés.")
-
+    
 if __name__ == "__main__":
     main()
