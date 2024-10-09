@@ -54,7 +54,7 @@ def load_py_module(file_path: str, module_name: str):
         logger.error(f"Erreur lors du chargement du module {module_name}: {e}")
         return None
 
-tarifs_module = load_py_module('./tarifs-prestations.py', 'tarifs_prestations')
+tarifs_module = load_py_module('./tarifs_prestations.py', 'tarifs_prestations')
 instructions_module = load_py_module('./chatbot-instructions.py', 'chatbot_instructions')
 
 # Initialisation des variables globales
