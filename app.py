@@ -16,6 +16,26 @@ st.set_page_config(page_title="View Avocats - Obtenez une estimation grâce à l
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Chargement du module tarifs_prestations
+def load_tarifs_module():
+    try:
+        spec = importlib.util.spec_from_file_location("tarifs_prestations", "./tarifs_prestations.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.get_tarifs()
+    except FileNotFoundError:
+        logger.error("Le fichier tarifs_prestations.py n'a pas été trouvé.")
+    except AttributeError:
+        logger.error("La fonction get_tarifs n'a pas été trouvée dans le module tarifs_prestations.")
+    except Exception as e:
+        logger.error(f"Une erreur s'est produite lors du chargement du module tarifs_prestations: {str(e)}")
+    return {}
+
+# Chargement des tarifs
+tarifs = load_tarifs_module()
+
+st.set_page_config(page_title="View Avocats - Obtenez une estimation grâce à l'IA", page_icon="⚖️", layout="wide")
+
 # Configuration du client OpenAI
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 if not OPENAI_API_KEY:
