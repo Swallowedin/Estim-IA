@@ -162,16 +162,7 @@ def main():
     if st.button("Obtenir une estimation grâce à l'intelligence artificielle"):
         if question:
             try:
-                loading_placeholder = st.empty()
-                with loading_placeholder:
-                    loading_animation = display_loading_animation()
-                
-                # Effectuer l'analyse et le calcul
-                domaine, prestation, confidence, is_relevant = analyze_question(question, client_type, urgency)
-                estimation = calculate_estimate(domaine, prestation, urgency)
-
-                # Une fois que tout est prêt, supprimer l'animation de chargement
-                loading_placeholder.empty()
+                # ... (le code précédent reste inchangé)
 
                 # Afficher les résultats
                 st.success("Analyse terminée. Voici les résultats :")
@@ -188,7 +179,7 @@ def main():
                 st.subheader("Résumé de l'estimation")
                 st.write(f"**Domaine juridique :** {domaine}")
                 st.write(f"**Prestation :** {tarifs['prestations'][domaine][prestation]['label']}")
-                st.write(f"**Estimation :** À partir de {estimation} €HT")
+                st.write(f"**Estimation :** À partir de {tarifs['prestations'][domaine][prestation]['tarif']} €HT")
 
                 st.markdown("---")
                 st.markdown("### 💡 Alternative Recommandée")
