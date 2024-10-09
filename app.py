@@ -84,13 +84,13 @@ def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo", num_iteration
 
 def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, str, float, bool]:
     options = [f"{domaine}: {', '.join(prestations_domaine.keys())}" for domaine, prestations_domaine in tarifs['prestations'].items()]
-    prompt = f"""Analysez la question suivante et déterminez si elle est susceptible de concerner une thématique juridique. Si c'est fort probable, identifiez le domaine juridique et la prestation la plus pertinente.
+    prompt = f"""Analysez la question suivante et déterminez si elle est susceptible de concerner une thématique juridique. Si c'est fort probable, identifiez le domaine juridique et la prestation la plus pertinente, même si elle n'est pas listée dans les options fournies.
 
 Question : {question}
 Type de client : {client_type}
 Degré d'urgence : {urgency}
 
-Options de domaines et prestations :
+Options de domaines et prestations (non exhaustives) :
 {' '.join(options)}
 
 Répondez au format JSON strict suivant :
@@ -108,21 +108,29 @@ Répondez au format JSON strict suivant :
     for response in responses:
         try:
             result = json.loads(response)
-            results.append(result)
+            required_keys = ["est_juridique", "domaine", "prestation", "indice_confiance"]
+            if all(key in result for key in required_keys):
+                results.append(result)
+            else:
+                logger.warning(f"Réponse incomplète de l'API : {result}")
         except json.JSONDecodeError:
-            logger.error("Erreur de décodage JSON dans la réponse de l'API")
+            logger.error(f"Erreur de décodage JSON dans la réponse de l'API : {response}")
     
     if not results:
-        return "", "", 0.0, False
+        logger.warning("Aucune réponse valide de l'API")
+        return "Non déterminé", "Non déterminé", 0.0, False
 
-    # Analyse simplifiée des résultats
     is_legal = sum(r['est_juridique'] for r in results) > len(results) / 2
     domain = max(set(r['domaine'] for r in results), key=lambda x: [r['domaine'] for r in results].count(x))
     service = max(set(r['prestation'] for r in results), key=lambda x: [r['prestation'] for r in results].count(x))
     confidence = sum(r['indice_confiance'] for r in results) / len(results)
     
-    is_relevant = is_legal and domain in tarifs['prestations'] and service in tarifs['prestations'][domain]
-    
+    # Ajuster la confiance si le domaine ou la prestation ne sont pas dans les tarifs
+    if domain not in tarifs['prestations'] or service not in tarifs['prestations'].get(domain, {}):
+        confidence *= 0.7  # Réduire la confiance de 30%
+
+    is_relevant = is_legal
+
     return domain, service, confidence, is_relevant
 
 def calculate_estimate(domaine: str, prestation: str, urgency: str) -> int:
@@ -166,30 +174,28 @@ def main():
                 with loading_placeholder:
                     loading_animation = display_loading_animation()
                 
-                # Effectuer l'analyse et le calcul
                 domaine, prestation, confidence, is_relevant = analyze_question(question, client_type, urgency)
                 
-                # Une fois que tout est prêt, supprimer l'animation de chargement
                 loading_placeholder.empty()
 
-                # Afficher les résultats
                 st.success("Analyse terminée. Voici les résultats :")
                 
                 st.subheader("Indice de confiance de l'analyse")
                 st.progress(confidence)
                 st.write(f"Confiance : {confidence:.2%}")
 
-                if confidence < 0.5 or not is_relevant:
-                    st.warning("⚠️ Attention : Notre IA a eu des difficultés à analyser votre question avec certitude. L'estimation suivante peut manquer de précision ou ne pas être applicable.")
+                if confidence < 0.5:
+                    st.warning("⚠️ Attention : Notre IA a eu des difficultés à analyser votre question avec certitude. L'estimation suivante peut manquer de précision.")
+                elif not is_relevant:
+                    st.info("Nous ne sommes pas sûr qu'il s'agisse d'une question d'ordre juridique. Nous allons tout de même tenter de vous fournir une estimation indicative.")
 
                 st.subheader("Résumé de l'estimation")
                 st.write(f"**Domaine juridique :** {domaine}")
+                st.write(f"**Prestation :** {prestation}")
                 
-                prestation_label = tarifs['prestations'].get(domaine, {}).get(prestation, {}).get('label', 'Non déterminée')
-                st.write(f"**Prestation :** {prestation_label}")
-                
-                if domaine != "Non déterminé" and prestation != "Non déterminé":
-                    tarif = tarifs['prestations'].get(domaine, {}).get(prestation, {}).get('tarif', 'Non disponible')
+                tarif_info = tarifs['prestations'].get(domaine, {}).get(prestation, {})
+                if tarif_info:
+                    tarif = tarif_info.get('tarif', 'Non disponible')
                     if isinstance(tarif, (int, float)):
                         if urgency == "Urgent":
                             tarif = round(tarif * tarifs.get("facteur_urgence", 1.5))
@@ -197,12 +203,12 @@ def main():
                     else:
                         st.write(f"**Estimation :** {tarif}")
                 else:
-                    st.write("**Estimation :** Non disponible pour cette demande spécifique.")
+                    st.write("**Estimation :** Non disponible dans notre base de données actuelle.")
+                    st.info("Cette prestation n'est pas encore répertoriée dans notre base de tarifs. Nous vous recommandons de nous contacter pour une estimation personnalisée.")
 
                 st.markdown("---")
                 st.markdown("### 💡 Alternative Recommandée")
                 
-                # Accès sécurisé à l'information de consultation initiale
                 consultation_initiale = None
                 for categorie in tarifs['prestations']:
                     if 'consultation_initiale' in tarifs['prestations'][categorie]:
