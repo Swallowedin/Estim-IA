@@ -186,13 +186,24 @@ def main():
                     st.info("Nous ne sommes pas sûr qu'il s'agisse d'une question d'ordre juridique. Nous allons tout de même tenter de vous fournir une estimation indicative.")
 
                 st.subheader("Résumé de l'estimation")
-                st.write(f"**Domaine juridique :** {domaine if domaine else 'Non déterminé'}")
-                st.write(f"**Prestation :** {prestation if prestation else 'Non déterminée'}")
+                st.write(f"**Domaine juridique :** {domaine}")
+                st.write(f"**Prestation :** {tarifs['prestations'][domaine][prestation]['label']}")
                 st.write(f"**Estimation :** À partir de {estimation} €HT")
 
                 st.markdown("---")
                 st.markdown("### 💡 Alternative Recommandée")
-                st.info(f"**Consultation initiale d'une heure** - Tarif fixe : {tarifs['consultation_initiale']} € HT")
+                
+                # Accès sécurisé à l'information de consultation initiale
+                consultation_initiale = None
+                for categorie in tarifs['prestations']:
+                    if 'consultation_initiale' in tarifs['prestations'][categorie]:
+                        consultation_initiale = tarifs['prestations'][categorie]['consultation_initiale']
+                        break
+
+                if consultation_initiale:
+                    st.info(f"**Consultation initiale d'une heure** - Tarif fixe : {consultation_initiale['tarif']} € HT")
+                else:
+                    st.info("Information sur la consultation initiale non disponible.")
 
             except Exception as e:
                 st.error(f"Une erreur s'est produite : {str(e)}")
