@@ -60,11 +60,11 @@ def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo", num_iteration
 def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, str, str, float, bool]:
     options = []
     for domaine, prestations in tarifs.items():
-        if isinstance(prestations, dict):  # Vérifier que c'est un domaine juridique
+        if isinstance(prestations, dict) and domaine not in ["tarif_horaire_standard", "tarif_externalisation", "facteur_urgence"]:
             for prestation, details in prestations.items():
                 if isinstance(details, dict) and 'label' in details:
                     options.append(f"{domaine}: {details['label']}")
-
+                    
     prompt = f"""Analysez la question suivante et déterminez si elle est susceptible de concerner une thématique juridique. Si c'est fort probable, identifiez le domaine juridique et la prestation la plus pertinente.
 
 Question : {question}
@@ -172,15 +172,12 @@ def main():
             try:
                 loading_placeholder = st.empty()
                 with loading_placeholder:
-                    loading_animation = display_loading_animation()
+                    display_loading_animation()
                 
-                # Effectuer l'analyse et le calcul
                 domaine, prestation_key, prestation_label, confidence, is_relevant = analyze_question(question, client_type, urgency)
                 
-                # Une fois que tout est prêt, supprimer l'animation de chargement
                 loading_placeholder.empty()
 
-                # Afficher les résultats
                 st.success("Analyse terminée. Voici les résultats :")
                 
                 st.subheader("Indice de confiance de l'analyse")
@@ -205,7 +202,6 @@ def main():
                         estimation *= facteur_urgence
                         st.write(f"**Facteur d'urgence appliqué :** x{facteur_urgence}")
 
-                    # Utilisation d'un conteneur stylisé pour mettre en valeur l'estimation
                     with st.container():
                         st.markdown(
                             f"""
@@ -219,13 +215,12 @@ def main():
                             unsafe_allow_html=True
                         )
 
-                    # Afficher la définition de la prestation si disponible
                     if 'definition' in prestation_info:
                         st.info(f"**Définition de la prestation :** {prestation_info['definition']}")
 
                 else:
                     if not is_relevant:
-                        st.warning("Nous ne sommes pas sûr qu'il s'agisse d'une question d'ordre juridique ou nous n'avons pas pu identifier une prestation spécifique.")
+                        st.warning("Nous ne sommes pas sûrs qu'il s'agisse d'une question d'ordre juridique ou nous n'avons pas pu identifier une prestation spécifique.")
                     else:
                         st.warning("Nous n'avons pas pu calculer une estimation précise pour cette prestation.")
 
