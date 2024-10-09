@@ -195,7 +195,7 @@ def main():
                 st.write(f"**Domaine juridique :** {domaine}")
                 st.write(f"**Prestation identifiée :** {prestation_label}")
 
-                if is_relevant:
+                if is_relevant and domaine in tarifs and prestation_key in tarifs[domaine]:
                     base_tarif = tarifs[domaine][prestation_key]['tarif']
                     st.write(f"**Tarif de base :** {base_tarif} €HT")
                     
