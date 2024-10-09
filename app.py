@@ -62,7 +62,8 @@ def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str
     for domaine, prestations in tarifs.items():
         if isinstance(prestations, dict):  # Vérifier que c'est un domaine juridique
             for prestation, details in prestations.items():
-                options.append(f"{domaine}: {details['label']}")
+                if 'label' in details:
+                    options.append(f"{domaine}: {details['label']}")
 
     prompt = f"""Analysez la question suivante et déterminez si elle est susceptible de concerner une thématique juridique. Si c'est fort probable, identifiez le domaine juridique et la prestation la plus pertinente.
 
@@ -115,6 +116,7 @@ def calculate_estimate(domaine: str, prestation: str, urgency: str) -> int:
     except KeyError:
         logger.error(f"Tarif non trouvé pour : {domaine} - {prestation}")
         return 0
+
 
 # Dans la fonction main(), remplacez cette ligne :
 base_tarif = tarifs[domaine][prestation_key]['tarif']
@@ -174,8 +176,7 @@ def main():
                 
                 # Effectuer l'analyse et le calcul
                 domaine, prestation_key, prestation_label, confidence, is_relevant = analyze_question(question, client_type, urgency)
-                estimation = calculate_estimate(domaine, prestation_key, urgency) if is_relevant else 0
-
+                
                 # Une fois que tout est prêt, supprimer l'animation de chargement
                 loading_placeholder.empty()
 
@@ -188,19 +189,21 @@ def main():
 
                 if confidence < 0.5:
                     st.warning("⚠️ Attention : Notre IA a eu des difficultés à analyser votre question avec certitude. L'estimation suivante peut manquer de précision.")
-                elif not is_relevant:
-                    st.info("Nous ne sommes pas sûr qu'il s'agisse d'une question d'ordre juridique. Nous allons tout de même tenter de vous fournir une estimation indicative.")
 
                 st.subheader("Résumé de l'estimation")
                 st.write(f"**Domaine juridique :** {domaine}")
                 st.write(f"**Prestation identifiée :** {prestation_label}")
 
                 if is_relevant and domaine in tarifs and prestation_key in tarifs[domaine]:
-                    base_tarif = tarifs[domaine][prestation_key]['tarif']
+                    prestation_info = tarifs[domaine][prestation_key]
+                    base_tarif = prestation_info['tarif']
                     st.write(f"**Tarif de base :** {base_tarif} €HT")
                     
+                    estimation = base_tarif
                     if urgency == "Urgent":
-                        st.write(f"**Facteur d'urgence appliqué :** x{tarifs['facteur_urgence']}")
+                        facteur_urgence = tarifs.get("facteur_urgence", 1.5)
+                        estimation *= facteur_urgence
+                        st.write(f"**Facteur d'urgence appliqué :** x{facteur_urgence}")
 
                     # Utilisation d'un conteneur stylisé pour mettre en valeur l'estimation
                     with st.container():
@@ -209,18 +212,30 @@ def main():
                             <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; text-align: center;">
                                 <h3 style="color: #1f618d;">Estimation</h3>
                                 <p style="font-size: 24px; font-weight: bold; color: #2c3e50;">
-                                    {estimation} €HT
+                                    {round(estimation)} €HT
                                 </p>
                             </div>
                             """,
                             unsafe_allow_html=True
                         )
+
+                    # Afficher la définition de la prestation si disponible
+                    if 'definition' in prestation_info:
+                        st.info(f"**Définition de la prestation :** {prestation_info['definition']}")
+
                 else:
-                    st.warning("Nous n'avons pas pu calculer une estimation précise pour cette prestation.")
+                    if not is_relevant:
+                        st.warning("Nous ne sommes pas sûr qu'il s'agisse d'une question d'ordre juridique ou nous n'avons pas pu identifier une prestation spécifique.")
+                    else:
+                        st.warning("Nous n'avons pas pu calculer une estimation précise pour cette prestation.")
 
                 st.markdown("---")
                 st.markdown("### 💡 Alternative Recommandée")
-                st.info("**Consultation initiale d'une heure** - Tarif fixe : 100 € HT")
+                consultation_initiale = tarifs.get("droit_civil_contrats", {}).get("consultation_initiale", {})
+                if consultation_initiale:
+                    st.info(f"**Consultation initiale** - Tarif fixe : {consultation_initiale['tarif']} € HT")
+                else:
+                    st.info("**Consultation initiale d'une heure** - Tarif fixe : 100 € HT")
 
             except Exception as e:
                 st.error(f"Une erreur s'est produite : {str(e)}")
