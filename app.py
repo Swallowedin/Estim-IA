@@ -203,7 +203,7 @@ def main():
                 st.subheader("Résumé de l'estimation")
                 
                 # Accès direct aux labels et tarifs
-                domaine_info = tarifs['forfaits'].get(domaine, {})
+                domaine_info = tarifs['prestations'].get(domaine, {})
                 prestation_info = domaine_info.get(prestation, {})
                 
                 domaine_label = domaine.replace('_', ' ').title()
@@ -227,7 +227,7 @@ def main():
                 st.markdown("---")
                 st.markdown("### 💡 Alternative Recommandée")
                 
-                consultation_initiale = tarifs['forfaits']['droit_civil_contrats'].get('consultation_initiale', {})
+                consultation_initiale = tarifs['prestations']['droit_civil_contrats'].get('consultation_initiale', {})
                 if consultation_initiale:
                     st.info(f"**Consultation initiale d'une heure** - Tarif fixe : {consultation_initiale['tarif']} € HT")
                 else:
@@ -241,6 +241,3 @@ def main():
 
     st.markdown("---")
     st.write("© 2024 View Avocats. Tous droits réservés.")
-
-if __name__ == "__main__":
-    main()
