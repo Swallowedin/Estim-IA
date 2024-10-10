@@ -207,7 +207,7 @@ def main():
                 st.write(f"**Domaine juridique :** {domaine_label}")
                 st.write(f"**Prestation :** {prestation_label}")
                 
-                tarif_info = tarifs['prestations'].get(domaine, {}).get(prestation, {})
+                tarif_info = tarifs['forfaits'].get(domaine, {}).get(prestation, {})
                 if tarif_info:
                     tarif = tarif_info.get('tarif', 'Non disponible')
                     if isinstance(tarif, (int, float)):
@@ -224,9 +224,9 @@ def main():
                 st.markdown("### 💡 Alternative Recommandée")
                 
                 consultation_initiale = None
-                for categorie in tarifs['prestations']:
-                    if 'consultation_initiale' in tarifs['prestations'][categorie]:
-                        consultation_initiale = tarifs['prestations'][categorie]['consultation_initiale']
+                for categorie in tarifs['forfaits']:
+                    if 'consultation_initiale' in tarifs['forfaits'][categorie]:
+                        consultation_initiale = tarifs['forfaits'][categorie]['consultation_initiale']
                         break
 
                 if consultation_initiale:
