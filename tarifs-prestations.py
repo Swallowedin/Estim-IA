@@ -2,6 +2,7 @@ def get_tarifs():
     return {
         "prestations": {
             "droit_civil_contrats": {
+                "label": "Droit civil et contrats",
                 "redaction_conditions_generales": {
                     "label": "Rédaction des conditions générales",
                     "tarif": 800,
@@ -54,6 +55,7 @@ def get_tarifs():
                 }
             },
             "droit_immobilier_commercial": {
+                "label": "Droit immobilier et commercial",
                 "redaction_bail_commercial": {
                     "label": "Rédaction de bail commercial",
                     "tarif": 1500,
@@ -156,6 +158,7 @@ def get_tarifs():
                 }
             },
             "droit_procedures_collectives": {
+                "label": "Droit des procédures collectives",
                 "redaction_declaration_creance": {
                     "label": "Rédaction de déclaration de créance",
                     "tarif": 500,
@@ -188,6 +191,7 @@ def get_tarifs():
                 }
             },
             "contentieux_des_affaires": {
+                "label": "Contentieux des affaires",
                 "redaction_mise_en_demeure": {
                     "label": "Rédaction de mise en demeure",
                     "tarif": 300,
@@ -240,6 +244,7 @@ def get_tarifs():
                 }
             },
             "droit_des_affaires": {
+                "label": "Droit des affaires",
                 "cession_fonds_commerce": {
                     "label": "Cession de fonds de commerce",
                     "tarif": 2500,
@@ -247,6 +252,7 @@ def get_tarifs():
                 }
             },
             "droit_construction": {
+                "label": "Droit de la construction",
                 "litige_droit_construction": {
                     "label": "Litige en droit de la construction",
                     "tarif": 500,
@@ -279,6 +285,7 @@ def get_tarifs():
                 }
             },
             "mediation": {
+                "label": "Médiation",
                 "accompagnement_reunion_mediation": {
                     "label": "Accompagnement en réunion de médiation",
                     "tarif": 500,
@@ -286,6 +293,7 @@ def get_tarifs():
                 }
             },
             "droit_societes": {
+                "label": "Droit des sociétés",
                 "creation_societe_associe_unique": {
                     "label": "Création de société à associé unique",
                     "tarif": 600,
