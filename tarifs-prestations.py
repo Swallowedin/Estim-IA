@@ -15,7 +15,7 @@ def get_tarifs():
                 },
                 "consultation_initiale": {
                     "label": "Consultation initiale",
-                    "tarif": 100,
+                    "tarif": 200,
                     "definition": "Premier rendez-vous pour évaluer la situation juridique et définir les actions à entreprendre."
                 },
                 "consultation_juridique_et_reglementaire": {
