@@ -8,6 +8,8 @@ import importlib.util
 
 st.set_page_config(page_title="View Avocats - Obtenez une estimation grâce à l'IA", page_icon="⚖️", layout="wide")
 
+print("Structure de tarifs:", json.dumps(tarifs, indent=2))
+
 # Fonction pour appliquer le CSS personnalisé
 def apply_custom_css():
     st.markdown("""
@@ -163,6 +165,10 @@ def main():
     
     st.title("🏛️ View Avocats - EstimiIA")
 
+    # Débogage : Affichage de la structure complète de tarifs
+    st.write("Structure de tarifs:")
+    st.json(tarifs)
+
     client_type = st.selectbox("Vous êtes :", ("Particulier", "Entreprise"))
     urgency = st.selectbox("Degré d'urgence :", ("Normal", "Urgent"))
     question = st.text_area("Expliquez brièvement votre cas, notre intelligence artificielle s'occupe du reste !", height=150)
@@ -180,6 +186,15 @@ def main():
 
                 st.success("Analyse terminée. Voici les résultats :")
                 
+                # Débogage : Affichage des résultats de l'analyse
+                st.write("Résultats de l'analyse:")
+                st.json({
+                    "domaine": domaine,
+                    "prestation": prestation,
+                    "confidence": confidence,
+                    "is_relevant": is_relevant
+                })
+
                 st.subheader("Indice de confiance de l'analyse")
                 st.progress(confidence)
                 st.write(f"Confiance : {confidence:.2%}")
@@ -191,9 +206,21 @@ def main():
 
                 st.subheader("Résumé de l'estimation")
                 
-                # Récupération directe des labels depuis la structure de tarifs
-                domaine_label = tarifs['prestations'].get(domaine, {}).get('label', domaine.replace('_', ' ').title())
-                prestation_info = tarifs['prestations'].get(domaine, {}).get(prestation, {})
+                # Débogage : Vérification de l'existence des clés
+                st.write("Vérification des clés:")
+                st.write(f"'domaine' existe dans tarifs['prestations']: {domaine in tarifs['prestations']}")
+                if domaine in tarifs['prestations']:
+                    st.write(f"'prestation' existe dans tarifs['prestations'][{domaine}]: {prestation in tarifs['prestations'][domaine]}")
+
+                # Tentative d'accès aux labels
+                domaine_info = tarifs['prestations'].get(domaine, {})
+                prestation_info = domaine_info.get(prestation, {})
+                
+                # Débogage : Affichage des informations récupérées
+                st.write("Informations du domaine:", domaine_info)
+                st.write("Informations de la prestation:", prestation_info)
+
+                domaine_label = domaine_info.get('label', domaine.replace('_', ' ').title())
                 prestation_label = prestation_info.get('label', prestation.replace('_', ' ').title())
                 
                 st.write(f"**Domaine juridique :** {domaine_label}")
@@ -229,6 +256,6 @@ def main():
 
     st.markdown("---")
     st.write("© 2024 View Avocats. Tous droits réservés.")
-
+    
 if __name__ == "__main__":
     main()
