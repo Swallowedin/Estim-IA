@@ -182,37 +182,44 @@ def main():
 
                 st.success("Analyse terminée. Voici les résultats :")
                 
-                st.subheader("Indice de confiance de l'analyse")
-                st.progress(confidence)
-                st.write(f"Confiance : {confidence:.2%}")
-
-                if confidence < 0.5:
-                    st.warning("⚠️ Attention : Notre IA a eu des difficultés à analyser votre question avec certitude. L'estimation suivante peut manquer de précision.")
-                elif not is_relevant:
-                    st.info("Nous ne sommes pas sûr qu'il s'agisse d'une question d'ordre juridique. Nous allons tout de même tenter de vous fournir une estimation indicative.")
-
-                st.subheader("Résumé de l'estimation")
-                
                 domaine_info = tarifs['prestations'].get(domaine, {})
                 prestation_info = domaine_info.get(prestation, {})
                 
                 domaine_label = domaine_info.get('label', domaine.replace('_', ' ').title())
                 prestation_label = prestation_info.get('label', prestation.replace('_', ' ').title())
-                
-                st.write(f"**Domaine juridique :** {domaine_label}")
-                st.write(f"**Prestation :** {prestation_label}")
-                
-                if prestation_info:
-                    tarif = prestation_info.get('tarif', 'Non disponible')
-                    if isinstance(tarif, (int, float)):
-                        if urgency == "Urgent":
-                            tarif = round(tarif * 1.5)  # Facteur d'urgence fixé à 1.5
-                        st.write(f"**Estimation :** À partir de {tarif} €HT")
+
+                # Création d'une colonne pour l'estimation
+                col1, col2 = st.columns([2, 1])
+
+                with col1:
+                    st.subheader("Résumé de l'estimation")
+                    st.write(f"**Domaine juridique :** {domaine_label}")
+                    st.write(f"**Prestation :** {prestation_label}")
+
+                with col2:
+                    st.subheader("Estimation")
+                    if prestation_info:
+                        tarif = prestation_info.get('tarif', 'Non disponible')
+                        if isinstance(tarif, (int, float)):
+                            if urgency == "Urgent":
+                                tarif = round(tarif * 1.5)  # Facteur d'urgence fixé à 1.5
+                            st.markdown(f"<h1 style='text-align: center; color: #1f77b4;'>À partir de<br>{tarif} €HT</h1>", unsafe_allow_html=True)
+                        else:
+                            st.markdown(f"<h2 style='text-align: center; color: #1f77b4;'>{tarif}</h2>", unsafe_allow_html=True)
                     else:
-                        st.write(f"**Estimation :** {tarif}")
-                else:
-                    st.write("**Estimation :** Non disponible dans notre base de données actuelle.")
-                    st.info("Cette prestation n'est pas encore répertoriée dans notre base de tarifs. Nous vous recommandons de nous contacter pour une estimation personnalisée.")
+                        st.markdown("<h2 style='text-align: center; color: #1f77b4;'>Non disponible</h2>", unsafe_allow_html=True)
+                        st.info("Cette prestation n'est pas encore répertoriée dans notre base de tarifs. Nous vous recommandons de nous contacter pour une estimation personnalisée.")
+
+                st.markdown("---")
+
+                st.subheader("Indice de confiance de l'analyse")
+                st.progress(confidence)
+                st.write(f"Confiance : {confidence:.2%}")
+
+                if confidence < 0.5:
+                    st.warning("⚠️ Attention : Notre IA a eu des difficultés à analyser votre question avec certitude. L'estimation ci-dessus peut manquer de précision.")
+                elif not is_relevant:
+                    st.info("Nous ne sommes pas sûr qu'il s'agisse d'une question d'ordre juridique. L'estimation ci-dessus est fournie à titre indicatif.")
 
                 st.markdown("---")
                 st.markdown("### 💡 Alternative Recommandée")
@@ -232,6 +239,3 @@ def main():
 
     st.markdown("---")
     st.write("© 2024 View Avocats. Tous droits réservés.")
-    
-if __name__ == "__main__":
-    main()
