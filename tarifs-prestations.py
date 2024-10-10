@@ -1,8 +1,5 @@
 def get_tarifs():
     return {
-        "tarif_horaire_standard": 250,  # Taux horaire moyen
-        "tarif_externalisation": 150,  # Taux horaire moyen
-        "facteur_urgence": 1.5,  # Facteur multiplicateur pour les cas urgents
         "prestations": {
             "droit_civil_contrats": {
                 "redaction_conditions_generales": {
