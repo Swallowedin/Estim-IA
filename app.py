@@ -158,17 +158,6 @@ def display_loading_animation():
     </div>
     """, unsafe_allow_html=True)
 
-def get_label(category, item):
-    """Fonction utilitaire améliorée pour obtenir le label d'un domaine ou d'une prestation."""
-    # Pour les domaines
-    if category in tarifs['prestations']:
-        if item == category:
-            return category.replace('_', ' ').title()
-        # Pour les prestations
-        if item in tarifs['prestations'][category]:
-            return tarifs['prestations'][category][item].get('label', item.replace('_', ' ').title())
-    return item.replace('_', ' ').title()  # Fallback: remplace les underscores par des espaces et met en majuscules
-
 def main():
     apply_custom_css()
     
@@ -202,16 +191,14 @@ def main():
 
                 st.subheader("Résumé de l'estimation")
                 
-                # Accès direct aux labels et tarifs
-                domaine_info = tarifs['prestations'].get(domaine, {})
-                prestation_info = domaine_info.get(prestation, {})
-                
-                domaine_label = domaine.replace('_', ' ').title()
-                prestation_label = prestation_info.get('label', prestation.replace('_', ' ').title())
+                # Utilisation de la fonction get_label pour obtenir les labels
+                domaine_label = get_label(domaine, domaine)
+                prestation_label = get_label(domaine, prestation)
                 
                 st.write(f"**Domaine juridique :** {domaine_label}")
                 st.write(f"**Prestation :** {prestation_label}")
                 
+                prestation_info = tarifs['prestations'].get(domaine, {}).get(prestation, {})
                 if prestation_info:
                     tarif = prestation_info.get('tarif', 'Non disponible')
                     if isinstance(tarif, (int, float)):
@@ -229,7 +216,8 @@ def main():
                 
                 consultation_initiale = tarifs['prestations']['droit_civil_contrats'].get('consultation_initiale', {})
                 if consultation_initiale:
-                    st.info(f"**Consultation initiale d'une heure** - Tarif fixe : {consultation_initiale['tarif']} € HT")
+                    consultation_label = consultation_initiale.get('label', 'Consultation initiale')
+                    st.info(f"**{consultation_label} d'une heure** - Tarif fixe : {consultation_initiale['tarif']} € HT")
                 else:
                     st.info("Information sur la consultation initiale non disponible.")
 
