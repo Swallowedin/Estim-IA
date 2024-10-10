@@ -159,11 +159,15 @@ def display_loading_animation():
     """, unsafe_allow_html=True)
 
 def get_label(category, item):
-    """Fonction utilitaire pour obtenir le label d'un domaine ou d'une prestation."""
+    """Fonction utilitaire améliorée pour obtenir le label d'un domaine ou d'une prestation."""
+    # Pour les domaines
     if category in tarifs['prestations']:
+        if item == category:
+            return category.replace('_', ' ').title()
+        # Pour les prestations
         if item in tarifs['prestations'][category]:
-            return tarifs['prestations'][category][item].get('label', item)
-    return item  # Retourne l'item original si aucun label n'est trouvé
+            return tarifs['prestations'][category][item].get('label', item.replace('_', ' ').title())
+    return item.replace('_', ' ').title()  # Fallback: remplace les underscores par des espaces et met en majuscules
 
 def main():
     apply_custom_css()
