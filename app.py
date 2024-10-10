@@ -163,6 +163,10 @@ def main():
     
     st.title("🏛️ View Avocats - EstimiIA")
 
+    # Débogage : Vérification de l'importation des tarifs
+    st.write("Vérification de l'importation des tarifs :")
+    st.write(tarifs)
+
     client_type = st.selectbox("Vous êtes :", ("Particulier", "Entreprise"))
     urgency = st.selectbox("Degré d'urgence :", ("Normal", "Urgent"))
     question = st.text_area("Expliquez brièvement votre cas, notre intelligence artificielle s'occupe du reste !", height=150)
@@ -191,12 +195,27 @@ def main():
 
                 st.subheader("Résumé de l'estimation")
                 
-                # Utilisation de la fonction get_label pour obtenir les labels
-                domaine_label = get_label(domaine, domaine)
-                prestation_label = get_label(domaine, prestation)
+                # Débogage : Affichage des valeurs retournées par analyze_question
+                st.write(f"Domaine : {domaine}")
+                st.write(f"Prestation : {prestation}")
                 
-                st.write(f"**Domaine juridique :** {domaine_label}")
-                st.write(f"**Prestation :** {prestation_label}")
+                # Vérification de l'existence de get_label
+                if 'get_label' in globals():
+                    st.write("La fonction get_label est définie globalement")
+                else:
+                    st.write("La fonction get_label n'est pas définie globalement")
+                
+                # Utilisation de la fonction get_label avec gestion d'erreur
+                try:
+                    domaine_label = get_label(domaine, domaine)
+                    prestation_label = get_label(domaine, prestation)
+                    
+                    st.write(f"**Domaine juridique :** {domaine_label}")
+                    st.write(f"**Prestation :** {prestation_label}")
+                except Exception as e:
+                    st.error(f"Erreur lors de l'appel de get_label: {str(e)}")
+                    st.write(f"**Domaine juridique :** {domaine}")
+                    st.write(f"**Prestation :** {prestation}")
                 
                 prestation_info = tarifs['prestations'].get(domaine, {}).get(prestation, {})
                 if prestation_info:
@@ -216,7 +235,11 @@ def main():
                 
                 consultation_initiale = tarifs['prestations']['droit_civil_contrats'].get('consultation_initiale', {})
                 if consultation_initiale:
-                    consultation_label = consultation_initiale.get('label', 'Consultation initiale')
+                    try:
+                        consultation_label = get_label('droit_civil_contrats', 'consultation_initiale')
+                    except Exception as e:
+                        st.error(f"Erreur lors de l'appel de get_label pour consultation initiale: {str(e)}")
+                        consultation_label = "Consultation initiale"
                     st.info(f"**{consultation_label} d'une heure** - Tarif fixe : {consultation_initiale['tarif']} € HT")
                 else:
                     st.info("Information sur la consultation initiale non disponible.")
