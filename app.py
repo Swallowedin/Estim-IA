@@ -229,3 +229,6 @@ def main():
 
     st.markdown("---")
     st.write("© 2024 View Avocats. Tous droits réservés.")
+
+if __name__ == "__main__":
+    main()
