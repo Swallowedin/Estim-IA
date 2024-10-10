@@ -158,6 +158,13 @@ def display_loading_animation():
     </div>
     """, unsafe_allow_html=True)
 
+def get_label(category, item):
+    """Fonction utilitaire pour obtenir le label d'un domaine ou d'une prestation."""
+    if category in tarifs['prestations']:
+        if item in tarifs['prestations'][category]:
+            return tarifs['prestations'][category][item].get('label', item)
+    return item  # Retourne l'item original si aucun label n'est trouvé
+
 def main():
     apply_custom_css()
     
@@ -190,8 +197,11 @@ def main():
                     st.info("Nous ne sommes pas sûr qu'il s'agisse d'une question d'ordre juridique. Nous allons tout de même tenter de vous fournir une estimation indicative.")
 
                 st.subheader("Résumé de l'estimation")
-                st.write(f"**Domaine juridique :** {domaine}")
-                st.write(f"**Prestation :** {prestation}")
+                domaine_label = get_label(domaine, domaine)
+                prestation_label = get_label(domaine, prestation)
+                
+                st.write(f"**Domaine juridique :** {domaine_label}")
+                st.write(f"**Prestation :** {prestation_label}")
                 
                 tarif_info = tarifs['prestations'].get(domaine, {}).get(prestation, {})
                 if tarif_info:
