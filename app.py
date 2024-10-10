@@ -201,15 +201,19 @@ def main():
                     st.info("Nous ne sommes pas sûr qu'il s'agisse d'une question d'ordre juridique. Nous allons tout de même tenter de vous fournir une estimation indicative.")
 
                 st.subheader("Résumé de l'estimation")
-                domaine_label = get_label(domaine, domaine)
-                prestation_label = get_label(domaine, prestation)
+                
+                # Accès direct aux labels et tarifs
+                domaine_info = tarifs['forfaits'].get(domaine, {})
+                prestation_info = domaine_info.get(prestation, {})
+                
+                domaine_label = domaine.replace('_', ' ').title()
+                prestation_label = prestation_info.get('label', prestation.replace('_', ' ').title())
                 
                 st.write(f"**Domaine juridique :** {domaine_label}")
                 st.write(f"**Prestation :** {prestation_label}")
                 
-                tarif_info = tarifs['forfaits'].get(domaine, {}).get(prestation, {})
-                if tarif_info:
-                    tarif = tarif_info.get('tarif', 'Non disponible')
+                if prestation_info:
+                    tarif = prestation_info.get('tarif', 'Non disponible')
                     if isinstance(tarif, (int, float)):
                         if urgency == "Urgent":
                             tarif = round(tarif * tarifs.get("facteur_urgence", 1.5))
@@ -223,12 +227,7 @@ def main():
                 st.markdown("---")
                 st.markdown("### 💡 Alternative Recommandée")
                 
-                consultation_initiale = None
-                for categorie in tarifs['forfaits']:
-                    if 'consultation_initiale' in tarifs['forfaits'][categorie]:
-                        consultation_initiale = tarifs['forfaits'][categorie]['consultation_initiale']
-                        break
-
+                consultation_initiale = tarifs['forfaits']['droit_civil_contrats'].get('consultation_initiale', {})
                 if consultation_initiale:
                     st.info(f"**Consultation initiale d'une heure** - Tarif fixe : {consultation_initiale['tarif']} € HT")
                 else:
